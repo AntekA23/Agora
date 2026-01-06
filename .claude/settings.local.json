@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(winget install:*)",
+      "Bash(git init:*)",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" auth status)",
+      "Bash(railway whoami:*)",
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" auth login --web -p https)"
+    ]
+  }
+}
