@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
 
+    # URLs
+    APP_URL: str = "http://localhost:8000"  # Backend URL for OAuth callbacks
+    FRONTEND_URL: str = "http://localhost:3000"  # Frontend URL for redirects
+
     # MongoDB
     MONGODB_URL: str = "mongodb://localhost:27017"
     MONGODB_DB_NAME: str = "test"  # Using "test" so data is visible in Railway UI
@@ -43,10 +47,16 @@ class Settings(BaseSettings):
     TOGETHER_IMAGE_MODEL: str = "google/gemini-3-pro-image"
 
     # Meta (Facebook/Instagram) Integration
+    # NOTE: These are AGORA APP credentials from Meta Developer Portal
+    # NOT client credentials - clients connect via OAuth and their tokens
+    # are stored per-company in MongoDB 'integrations' collection
     META_APP_ID: str = ""
     META_APP_SECRET: str = ""
 
     # Google Calendar Integration
+    # NOTE: These are AGORA APP credentials from Google Cloud Console
+    # NOT client credentials - clients connect via OAuth and their tokens
+    # are stored per-company in MongoDB 'integrations' collection
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
 

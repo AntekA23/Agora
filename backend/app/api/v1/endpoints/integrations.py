@@ -119,8 +119,7 @@ async def connect_meta(
         "created_at": datetime.utcnow(),
     })
 
-    # TODO: Replace with actual redirect URI from settings
-    redirect_uri = "https://your-app.railway.app/api/v1/integrations/meta/callback"
+    redirect_uri = f"{settings.APP_URL}{settings.API_V1_PREFIX}/integrations/meta/callback"
 
     oauth_url = meta_service.get_oauth_url(
         client_id=settings.META_APP_ID,
@@ -146,7 +145,7 @@ async def meta_callback(
     if not settings.META_APP_ID or not settings.META_APP_SECRET:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Meta not configured")
 
-    redirect_uri = "https://your-app.railway.app/api/v1/integrations/meta/callback"
+    redirect_uri = f"{settings.APP_URL}{settings.API_V1_PREFIX}/integrations/meta/callback"
 
     try:
         # Exchange code for token
@@ -195,10 +194,10 @@ async def meta_callback(
         )
 
         # Redirect to frontend success page
-        return RedirectResponse(url="/dashboard/integrations?status=success&platform=meta")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/dashboard/integrations?status=success&platform=meta")
 
     except Exception as e:
-        return RedirectResponse(url=f"/dashboard/integrations?status=error&message={str(e)}")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/dashboard/integrations?status=error&message={str(e)}")
 
 
 @router.post("/meta/publish", response_model=PublishPostResponse)
@@ -381,7 +380,7 @@ async def connect_google(
         "created_at": datetime.utcnow(),
     })
 
-    redirect_uri = "https://your-app.railway.app/api/v1/integrations/google/callback"
+    redirect_uri = f"{settings.APP_URL}{settings.API_V1_PREFIX}/integrations/google/callback"
 
     oauth_url = calendar_service.get_oauth_url(
         client_id=settings.GOOGLE_CLIENT_ID,
@@ -406,7 +405,7 @@ async def google_callback(
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Google not configured")
 
-    redirect_uri = "https://your-app.railway.app/api/v1/integrations/google/callback"
+    redirect_uri = f"{settings.APP_URL}{settings.API_V1_PREFIX}/integrations/google/callback"
 
     try:
         token_data = await calendar_service.exchange_code_for_token(
@@ -429,10 +428,10 @@ async def google_callback(
             upsert=True,
         )
 
-        return RedirectResponse(url="/dashboard/integrations?status=success&platform=google")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/dashboard/integrations?status=success&platform=google")
 
     except Exception as e:
-        return RedirectResponse(url=f"/dashboard/integrations?status=error&message={str(e)}")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/dashboard/integrations?status=error&message={str(e)}")
 
 
 @router.get("/google/events")
