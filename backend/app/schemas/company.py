@@ -11,6 +11,10 @@ from app.models.company import (
     Service,
     Competitor,
     BrandGuidelines,
+    TargetAudience,
+    BrandIdentity,
+    CommunicationStyle,
+    ContentPreferences,
 )
 
 
@@ -119,3 +123,104 @@ class BrandGuidelinesInput(BaseModel):
     example_posts: list[str] | None = None
     color_palette: list[str] | None = None
     hashtags_always: list[str] | None = None
+
+
+# ============================================================================
+# BRAND WIZARD SCHEMAS
+# ============================================================================
+
+
+class WebsiteAnalyzeRequest(BaseModel):
+    """Request to analyze company website."""
+
+    url: str = Field(..., min_length=5)
+
+
+class WebsiteAnalyzeResponse(BaseModel):
+    """Response from website analysis."""
+
+    success: bool
+    data: dict = Field(default_factory=dict)
+    error: str | None = None
+
+
+class BrandWizardStep1(BaseModel):
+    """Step 1: Basic company info."""
+
+    company_description: str = ""
+    founded_year: int | None = None
+    location: str = ""
+    website: str = ""
+
+
+class BrandWizardStep2(BaseModel):
+    """Step 2: Brand identity."""
+
+    mission: str = ""
+    vision: str = ""
+    values: list[str] = Field(default_factory=list)
+    personality_traits: list[str] = Field(default_factory=list)
+    unique_value_proposition: str = ""
+
+
+class BrandWizardStep3(BaseModel):
+    """Step 3: Target audience."""
+
+    description: str = ""
+    age_from: int | None = None
+    age_to: int | None = None
+    gender: str = "all"
+    locations: list[str] = Field(default_factory=list)
+    interests: list[str] = Field(default_factory=list)
+    pain_points: list[str] = Field(default_factory=list)
+    goals: list[str] = Field(default_factory=list)
+    where_they_are: list[str] = Field(default_factory=list)
+
+
+class BrandWizardStep4(BaseModel):
+    """Step 4: Products and services."""
+
+    products: list[ProductInput] = Field(default_factory=list)
+    services: list[ServiceInput] = Field(default_factory=list)
+    price_positioning: str = "mid_range"
+
+
+class BrandWizardStep5(BaseModel):
+    """Step 5: Competition."""
+
+    competitors: list[CompetitorInput] = Field(default_factory=list)
+    market_position: str = ""
+    key_differentiators: list[str] = Field(default_factory=list)
+
+
+class BrandWizardStep6(BaseModel):
+    """Step 6: Communication style."""
+
+    formality_level: int = 3
+    emoji_usage: str = "moderate"
+    words_to_use: list[str] = Field(default_factory=list)
+    words_to_avoid: list[str] = Field(default_factory=list)
+    example_phrases: list[str] = Field(default_factory=list)
+
+
+class BrandWizardStep7(BaseModel):
+    """Step 7: Content preferences."""
+
+    themes: list[str] = Field(default_factory=list)
+    hashtag_style: str = "mixed"
+    branded_hashtags: list[str] = Field(default_factory=list)
+    post_frequency: str = ""
+    preferred_formats: list[str] = Field(default_factory=list)
+    content_goals: list[str] = Field(default_factory=list)
+
+
+class BrandWizardComplete(BaseModel):
+    """Complete brand wizard data - all steps combined."""
+
+    step1: BrandWizardStep1 = Field(default_factory=BrandWizardStep1)
+    step2: BrandWizardStep2 = Field(default_factory=BrandWizardStep2)
+    step3: BrandWizardStep3 = Field(default_factory=BrandWizardStep3)
+    step4: BrandWizardStep4 = Field(default_factory=BrandWizardStep4)
+    step5: BrandWizardStep5 = Field(default_factory=BrandWizardStep5)
+    step6: BrandWizardStep6 = Field(default_factory=BrandWizardStep6)
+    step7: BrandWizardStep7 = Field(default_factory=BrandWizardStep7)

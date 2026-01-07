@@ -25,6 +25,60 @@ class CompanySettings(BaseModel):
     brand_voice: str = "profesjonalny"
     target_audience: str = ""
     language: str = "pl"
+    wizard_completed: bool = False  # Whether brand wizard was completed
+
+
+class TargetAudience(BaseModel):
+    """Detailed target audience information."""
+
+    description: str = ""  # Ogolny opis
+    age_from: int | None = None
+    age_to: int | None = None
+    gender: str = "all"  # all, female, male
+    locations: list[str] = Field(default_factory=list)  # np. ["Warszawa", "Krakow"]
+    interests: list[str] = Field(default_factory=list)
+    pain_points: list[str] = Field(default_factory=list)  # Problemy/bolaczki
+    goals: list[str] = Field(default_factory=list)  # Cele klientow
+    where_they_are: list[str] = Field(default_factory=list)  # Gdzie sie znajduja (Instagram, LinkedIn, etc.)
+
+
+class BrandIdentity(BaseModel):
+    """Brand identity and personality."""
+
+    mission: str = ""
+    vision: str = ""
+    values: list[str] = Field(default_factory=list)  # np. ["jakosc", "innowacyjnosc"]
+    personality_traits: list[str] = Field(default_factory=list)  # np. ["profesjonalna", "przyjazna"]
+    unique_value_proposition: str = ""
+
+
+class CommunicationStyle(BaseModel):
+    """Communication preferences."""
+
+    formality_level: int = 3  # 1-5: 1=bardzo formalny, 5=bardzo swobodny
+    emoji_usage: str = "moderate"  # none, minimal, moderate, frequent
+    words_to_use: list[str] = Field(default_factory=list)
+    words_to_avoid: list[str] = Field(default_factory=list)
+    example_phrases: list[str] = Field(default_factory=list)  # Przyklady dobrego stylu
+    languages: list[str] = Field(default_factory=lambda: ["pl"])
+
+
+class ContentPreferences(BaseModel):
+    """Content creation preferences."""
+
+    themes: list[str] = Field(default_factory=list)  # Filary tresci
+    hashtag_style: str = "mixed"  # branded, trending, mixed, minimal
+    branded_hashtags: list[str] = Field(default_factory=list)
+    post_frequency: str = ""  # np. "3-4 razy w tygodniu"
+    preferred_formats: list[str] = Field(default_factory=list)  # np. ["karuzela", "reels", "stories"]
+    content_goals: list[str] = Field(default_factory=list)  # np. ["budowanie swiadomosci", "sprzedaz"]
+
+
+class PricePositioning(str, Enum):
+    BUDGET = "budget"
+    MID_RANGE = "mid_range"
+    PREMIUM = "premium"
+    LUXURY = "luxury"
 
 
 class Subscription(BaseModel):
@@ -88,29 +142,44 @@ class CompanyKnowledge(BaseModel):
 
     # Basic info
     company_description: str = ""
+    founded_year: int | None = None
+    location: str = ""
+    website: str = ""
+    social_media: dict[str, str] = Field(default_factory=dict)  # {"instagram": "@firma", ...}
+
+    # Brand Identity (new structured)
+    brand_identity: BrandIdentity = Field(default_factory=BrandIdentity)
+
+    # Legacy fields (kept for compatibility)
     mission: str = ""
     vision: str = ""
     unique_value_proposition: str = ""
 
+    # Target Audience (new structured)
+    target_audience: TargetAudience = Field(default_factory=TargetAudience)
+    target_segments: list[str] = Field(default_factory=list)  # Segmenty klientow (legacy)
+
     # Products & Services
     products: list[Product] = Field(default_factory=list)
     services: list[Service] = Field(default_factory=list)
+    price_positioning: str = "mid_range"  # budget, mid_range, premium, luxury
 
     # Market position
     competitors: list[Competitor] = Field(default_factory=list)
-    target_segments: list[str] = Field(default_factory=list)  # Segmenty klientow
+    market_position: str = ""  # Opis pozycji na rynku
 
-    # Brand
+    # Communication (new structured)
+    communication_style: CommunicationStyle = Field(default_factory=CommunicationStyle)
+
+    # Content preferences (new)
+    content_preferences: ContentPreferences = Field(default_factory=ContentPreferences)
+
+    # Brand guidelines (legacy - kept for compatibility)
     brand_guidelines: BrandGuidelines = Field(default_factory=BrandGuidelines)
 
     # History & achievements
-    founded_year: int | None = None
     achievements: list[str] = Field(default_factory=list)
     case_studies: list[str] = Field(default_factory=list)
-
-    # Contact & social
-    website: str = ""
-    social_media: dict[str, str] = Field(default_factory=dict)  # {"instagram": "@firma", ...}
 
     # Custom data
     custom_facts: list[str] = Field(default_factory=list)  # Dodatkowe fakty o firmie

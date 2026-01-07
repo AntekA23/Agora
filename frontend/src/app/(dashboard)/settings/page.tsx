@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useCompany, useUpdateCompany } from "@/hooks/use-company";
+import { useWizardStatus } from "@/hooks/use-brand-wizard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -12,18 +13,21 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Documentation } from "@/components/documentation";
-import { Loader2, Save, Building2, User, Palette, Book, Settings } from "lucide-react";
+import { BrandWizard } from "@/components/brand-wizard";
+import { Loader2, Save, Building2, User, Palette, Book, Settings, Wand2, CheckCircle2 } from "lucide-react";
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const { data: company, isLoading } = useCompany();
   const updateCompany = useUpdateCompany();
+  const { data: wizardStatus } = useWizardStatus();
 
   const [activeTab, setActiveTab] = useState("settings");
   const [brandVoice, setBrandVoice] = useState("");
   const [targetAudience, setTargetAudience] = useState("");
   const [industry, setIndustry] = useState("");
   const [companySize, setCompanySize] = useState("small");
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   useEffect(() => {
     if (company) {
@@ -157,13 +161,33 @@ export default function SettingsPage() {
             {/* Brand Settings */}
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="h-5 w-5" />
-                  Ustawienia marki
-                </CardTitle>
-                <CardDescription>
-                  Te ustawienia wplywaja na sposob komunikacji agentow AI
-                </CardDescription>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Palette className="h-5 w-5" />
+                      Ustawienia marki
+                    </CardTitle>
+                    <CardDescription>
+                      Te ustawienia wplywaja na sposob komunikacji agentow AI
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant={wizardStatus?.wizard_completed ? "outline" : "default"}
+                    onClick={() => setWizardOpen(true)}
+                  >
+                    {wizardStatus?.wizard_completed ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Edytuj profil marki
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4 mr-2" />
+                        Kreator marki
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
@@ -235,6 +259,14 @@ export default function SettingsPage() {
           <Documentation />
         </TabsContent>
       </Tabs>
+
+      <BrandWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        onComplete={() => {
+          setWizardOpen(false);
+        }}
+      />
     </div>
   );
 }
