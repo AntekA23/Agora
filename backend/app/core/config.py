@@ -9,14 +9,9 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
 
-    # MongoDB (MONGO_URL is Railway's default variable name)
-    MONGO_URL: str = "mongodb://localhost:27017"
+    # MongoDB
+    MONGODB_URI: str = "mongodb://localhost:27017"
     MONGODB_DB_NAME: str = "agora"
-
-    @property
-    def MONGODB_URI(self) -> str:
-        """Alias for MONGO_URL for backwards compatibility."""
-        return self.MONGO_URL
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
