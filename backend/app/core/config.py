@@ -38,9 +38,9 @@ class Settings(BaseSettings):
     TAVILY_SEARCH_DEPTH: str = "advanced"  # basic | advanced
     TAVILY_MAX_RESULTS: int = 5
 
-    # Together.ai (Image Generation)
+    # Together.ai (Image Generation - Nano Banana Pro)
     TOGETHER_API_KEY: str = ""
-    TOGETHER_IMAGE_MODEL: str = "black-forest-labs/FLUX.1-schnell-Free"
+    TOGETHER_IMAGE_MODEL: str = "google/gemini-3-pro-image"
 
     class Config:
         env_file = ".env"
