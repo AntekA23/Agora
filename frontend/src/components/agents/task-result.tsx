@@ -115,7 +115,7 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => copyToClipboard(task.output?.content || "")}
+                onClick={() => copyToClipboard(String(task.output?.content || ""))}
               >
                 {copied ? (
                   <Check className="h-4 w-4 mr-1" />
@@ -127,7 +127,7 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => exportToFile(task.output?.content || "", getExportFilename())}
+                onClick={() => exportToFile(String(task.output?.content || ""), getExportFilename())}
               >
                 <Download className="h-4 w-4 mr-1" />
                 Eksportuj
