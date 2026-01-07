@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     # OpenAI
     OPENAI_API_KEY: str = ""
 
+    # Tavily (Web Search)
+    TAVILY_API_KEY: str = ""
+    TAVILY_SEARCH_DEPTH: str = "advanced"  # basic | advanced
+    TAVILY_MAX_RESULTS: int = 5
+
     class Config:
         env_file = ".env"
         case_sensitive = True

@@ -1,7 +1,10 @@
+"""Finance agents with Tavily web search for market data and benchmarks."""
+
 from crewai import Agent, Task, Crew, Process
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
+from app.services.agents.tools.web_search import TavilySearchTool, TavilyMarketDataTool
 
 
 async def generate_invoice_draft(
@@ -119,14 +122,19 @@ async def analyze_cashflow(
     expenses: list[dict],
     period: str = "miesiac",
     language: str = "pl",
+    industry: str = "",
 ) -> dict:
-    """Analyze cashflow using CrewAI agents."""
+    """Analyze cashflow using CrewAI agents with Tavily market research."""
 
     llm = ChatOpenAI(
         model="gpt-4o-mini",
         api_key=settings.OPENAI_API_KEY,
         temperature=0.4,
     )
+
+    # Initialize Tavily tools
+    search_tool = TavilySearchTool()
+    market_tool = TavilyMarketDataTool()
 
     # Format data
     income_text = "\n".join([
@@ -143,18 +151,62 @@ async def analyze_cashflow(
     total_expenses = sum(item.get('amount', 0) for item in expenses)
     balance = total_income - total_expenses
 
+    # Extract expense categories for research
+    expense_categories = list(set(
+        item.get('category', 'inne') for item in expenses
+    ))
+
+    # Market Researcher
+    market_researcher = Agent(
+        role="Market Research Analyst",
+        goal="Zbadaj benchmarki branzowe i znajdz dane porownawcze",
+        backstory="""Jestes analitykiem rynkowym specjalizujacym sie w malych firmach w Polsce.
+        Uzywasz narzedzi wyszukiwania aby znalezc:
+        - Benchmarki branzowe
+        - Srednie wydatki w kategorii
+        - Trendy ekonomiczne
+        - Sposoby optymalizacji kosztow
+        Dostarczasz dane ktore pomagaja w podejmowaniu decyzji finansowych.""",
+        llm=llm,
+        tools=[search_tool, market_tool],
+        verbose=False,
+    )
+
     cashflow_analyst = Agent(
         role="Cashflow Analyst",
         goal="Analizuj przeplywy pieniezne i identyfikuj trendy",
         backstory="""Jestes analitykiem finansowym specjalizujacym sie w malych firmach.
         Potrafisz wyciagac wnioski z danych finansowych i dawac praktyczne rekomendacje.
+        Wykorzystujesz dane rynkowe do porownania z benchmarkami.
         Komunikujesz sie jasno i przystepnie.""",
         llm=llm,
         verbose=False,
     )
 
+    # Task 1: Research market benchmarks
+    research_task = Task(
+        description=f"""Przeprowadz research rynkowy dla analizy cashflow:
+
+BRANZA: {industry or 'mala firma / MŚP'}
+GLOWNE KATEGORIE WYDATKOW: {', '.join(expense_categories)}
+OKRES: {period}
+
+Twoje zadania:
+1. Uzyj 'tavily_market' aby znalezc benchmarki branzowe dla malych firm w Polsce
+2. Uzyj 'tavily_search' aby znalezc sposoby optymalizacji kosztow w kategoriach: {', '.join(expense_categories[:3])}
+3. Sprawdz aktualne trendy ekonomiczne dla MŚP w Polsce
+
+Zwroc:
+- BENCHMARKI: typowe proporcje przychodow/wydatkow w branzy
+- OPTYMALIZACJA: konkretne sposoby redukcji kosztow
+- TRENDY: co warto wiedziec o sytuacji ekonomicznej""",
+        expected_output="Research z benchmarkami i rekomendacjami",
+        agent=market_researcher,
+    )
+
+    # Task 2: Analyze cashflow with market context
     analyze_task = Task(
-        description=f"""Przeanalizuj przeplywy pieniezne za {period}:
+        description=f"""Na podstawie danych finansowych i researchu rynkowego przeanalizuj cashflow:
 
 PRZYCHODY ({total_income:.2f} PLN):
 {income_text or 'Brak danych'}
@@ -163,22 +215,40 @@ WYDATKI ({total_expenses:.2f} PLN):
 {expenses_text or 'Brak danych'}
 
 BILANS: {balance:.2f} PLN
+OKRES: {period}
 
 Przygotuj analize zawierajaca:
-1. Podsumowanie sytuacji finansowej
-2. Glowne zrodla przychodow
-3. Najwieksze kategorie wydatkow
-4. Trendy i wzorce (jesli widoczne)
-5. 3-5 konkretnych rekomendacji
+1. PODSUMOWANIE SYTUACJI FINANSOWEJ
+   - Ocena ogolna (dobra/srednia/wymaga uwagi)
+   - Porownanie z benchmarkami branzowymi z researchu
 
-Pisz zwiezle i praktycznie.""",
-        expected_output="Analiza cashflow z rekomendacjami",
+2. ANALIZA PRZYCHODOW
+   - Glowne zrodla
+   - Trendy (jesli widoczne)
+
+3. ANALIZA WYDATKOW
+   - Najwieksze kategorie
+   - Porownanie z benchmarkami z researchu
+   - Kategorie do optymalizacji
+
+4. REKOMENDACJE (5-7 konkretnych)
+   - Wykorzystaj dane z researchu o optymalizacji kosztow
+   - Podaj konkretne dzialania do podjecia
+   - Uszereguj wg priorytetu
+
+5. OSTRZEZENIA
+   - Ryzyka do monitorowania
+   - Czerwone flagi (jesli sa)
+
+Pisz zwiezle i praktycznie. Kazda rekomendacja powinna byc konkretna i wykonalna.""",
+        expected_output="Kompletna analiza cashflow z rekomendacjami opartymi na danych rynkowych",
         agent=cashflow_analyst,
+        context=[research_task],
     )
 
     crew = Crew(
-        agents=[cashflow_analyst],
-        tasks=[analyze_task],
+        agents=[market_researcher, cashflow_analyst],
+        tasks=[research_task, analyze_task],
         process=Process.sequential,
         verbose=False,
     )
@@ -191,4 +261,6 @@ Pisz zwiezle i praktycznie.""",
         "total_income": total_income,
         "total_expenses": total_expenses,
         "balance": balance,
+        "used_tavily": True,
+        "industry": industry,
     }

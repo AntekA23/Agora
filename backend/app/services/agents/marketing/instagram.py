@@ -1,7 +1,10 @@
+"""Instagram content creation agent with Tavily web search capabilities."""
+
 from crewai import Agent, Task, Crew, Process
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
+from app.services.agents.tools.web_search import TavilySearchTool, TavilyTrendsTool
 
 
 def create_instagram_crew(
@@ -12,12 +15,31 @@ def create_instagram_crew(
     include_hashtags: bool = True,
     post_type: str = "post",
 ) -> Crew:
-    """Create a CrewAI crew for Instagram content creation."""
+    """Create a CrewAI crew for Instagram content creation with web research."""
 
     llm = ChatOpenAI(
         model="gpt-4o-mini",
         api_key=settings.OPENAI_API_KEY,
         temperature=0.7,
+    )
+
+    # Initialize Tavily tools
+    search_tool = TavilySearchTool()
+    trends_tool = TavilyTrendsTool()
+
+    # Content Researcher - uses Tavily to research trends
+    content_researcher = Agent(
+        role="Content Researcher",
+        goal="Zbadaj aktualne trendy i znajdz inspiracje dla contentu",
+        backstory="""Jestes specjalista od researchu social media.
+        Uzywasz narzedzi do wyszukiwania aby znalezc:
+        - Aktualne trendy w branzy
+        - Popularne hashtagi
+        - Co dziala u konkurencji
+        Dostarczasz dane ktore pomagaja tworzyc lepszy content.""",
+        llm=llm,
+        tools=[search_tool, trends_tool],
+        verbose=False,
     )
 
     # Marketing Manager - oversees and approves content
@@ -39,7 +61,7 @@ def create_instagram_crew(
         goal="Tworz angazujace posty na Instagram ktore przyciagaja uwage",
         backstory=f"""Jestes specjalista od Instagrama z wieloletnim doswiadczeniem.
         Wiesz jak pisac teksty ktore generuja zaangazowanie.
-        Znasz trendy i algorytm Instagrama.
+        Korzystasz z danych z researchu aby tworzyc lepszy content.
         Brand voice: {brand_voice}.
         Grupa docelowa: {target_audience or 'szeroka publicznosc'}.
         Zawsze piszesz po polsku.""",
@@ -51,51 +73,80 @@ def create_instagram_crew(
     content_type_desc = {
         "post": "standardowy post na feed",
         "story": "krotka tresc na Instagram Story",
-        "reel": "scenariusz dla krotokiego video Reels",
+        "reel": "scenariusz dla krotkiego video Reels",
         "carousel": "seria slajdow karuzeli (3-5 slajdow)",
     }.get(post_type, "standardowy post na feed")
 
-    # Task for Instagram Specialist
+    # Task 1: Research trends and hashtags
+    research_task = Task(
+        description=f"""Przeprowadz research dla posta na Instagram:
+
+BRIEF: {brief}
+BRANZA/TEMAT: {brief[:50]}
+
+Twoje zadania:
+1. Uzyj narzedzia 'tavily_trends' aby znalezc aktualne trendy zwiazane z tematem
+2. Uzyj narzedzia 'tavily_search' aby znalezc popularne hashtagi dla tego tematu
+3. Sprawdz co dziala w social media w tej branzy
+
+Zwroc:
+- TRENDY: 3-5 aktualnych trendow
+- HASHTAGI: 10-15 popularnych hashtagow
+- INSPIRACJE: 2-3 pomysly na content""",
+        expected_output="Research z trendami, hashtagami i inspiracjami",
+        agent=content_researcher,
+    )
+
+    # Task 2: Create content based on research
     create_content_task = Task(
-        description=f"""Stworz {content_type_desc} na Instagram na podstawie briefu:
+        description=f"""Na podstawie researchu stworz {content_type_desc} na Instagram:
 
 BRIEF: {brief}
 
 Wymagania:
 1. Tekst musi byc w jezyku polskim
 2. Tekst musi byc angazujacy i zgodny z brand voice: {brand_voice}
-3. {'Dodaj odpowiednie hashtagi (5-10)' if include_hashtags else 'Bez hashtagow'}
+3. {'Uzyj hashtagow z researchu (wybierz 5-10 najlepszych)' if include_hashtags else 'Bez hashtagow'}
 4. Uwzglednij grupe docelowa: {target_audience or 'szeroka publicznosc'}
-5. Zaproponuj najlepszy czas publikacji
+5. Wykorzystaj trendy znalezione w researchu
+6. Zaproponuj najlepszy czas publikacji
 
 Zwroc wynik w formacie:
 - TEKST POSTU: [tekst]
 - HASHTAGI: [hashtagi jesli wymagane]
 - CZAS PUBLIKACJI: [sugerowany czas]
-- OPIS GRAFIKI: [krotki opis jaka grafika pasowałaby do postu]""",
+- OPIS GRAFIKI: [krotki opis jaka grafika pasowałaby do postu]
+- WYKORZYSTANE TRENDY: [jakie trendy zostaly wykorzystane]""",
         expected_output="Gotowy post na Instagram z tekstem, hashtagami i sugestiami",
         agent=instagram_specialist,
+        context=[research_task],
     )
 
-    # Task for Marketing Manager to review
+    # Task 3: Review and approve
     review_task = Task(
         description=f"""Przejrzyj stworzony content pod katem:
 1. Zgodnosci z brand voice: {brand_voice}
 2. Atrakcyjnosci dla grupy docelowej: {target_audience or 'szeroka publicznosc'}
 3. Poprawnosci jezykowej
-4. Potencjalu wiralowego
+4. Wykorzystania trendow z researchu
+5. Potencjalu wiralowego
 
 Jesli wszystko jest OK, zatwierdz content.
 Jesli cos wymaga poprawy, wprowadz korekty.
 
-Zwroc finalny, zatwierdzony content.""",
+Zwroc finalny, zatwierdzony content w formacie:
+- TEKST POSTU: [tekst]
+- HASHTAGI: [hashtagi]
+- CZAS PUBLIKACJI: [czas]
+- OPIS GRAFIKI: [opis]""",
         expected_output="Zatwierdzony post gotowy do publikacji",
         agent=marketing_manager,
+        context=[research_task, create_content_task],
     )
 
     crew = Crew(
-        agents=[instagram_specialist, marketing_manager],
-        tasks=[create_content_task, review_task],
+        agents=[content_researcher, instagram_specialist, marketing_manager],
+        tasks=[research_task, create_content_task, review_task],
         process=Process.sequential,
         verbose=False,
     )
@@ -111,7 +162,7 @@ async def generate_instagram_post(
     include_hashtags: bool = True,
     post_type: str = "post",
 ) -> dict:
-    """Generate Instagram post using CrewAI agents."""
+    """Generate Instagram post using CrewAI agents with Tavily research."""
 
     crew = create_instagram_crew(
         brief=brief,
@@ -133,6 +184,7 @@ async def generate_instagram_post(
         "content": result_text,
         "post_type": post_type,
         "brief": brief,
+        "used_tavily": True,
     }
 
     # Try to extract structured data
@@ -154,6 +206,11 @@ async def generate_instagram_post(
 
     if "OPIS GRAFIKI:" in result_text:
         image_part = result_text.split("OPIS GRAFIKI:")[1]
+        # Handle case where there might be more sections after
+        for delimiter in ["WYKORZYSTANE", "---", "\n\n\n"]:
+            if delimiter in image_part:
+                image_part = image_part.split(delimiter)[0]
+                break
         output["image_prompt"] = image_part.strip()
 
     return output
