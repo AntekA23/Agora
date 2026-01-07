@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     QDRANT_URL: str = "http://localhost:6333"
 
     # JWT
-    JWT_SECRET: str = "change-me-in-production"
+    SECRET_KEY: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
