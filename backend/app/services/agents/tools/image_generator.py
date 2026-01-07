@@ -1,8 +1,8 @@
-"""Image Generator tool using OpenAI DALL-E for creating visuals."""
+"""Image Generator tool using Together.ai Flux models for creating visuals."""
 
 import base64
 import httpx
-from openai import OpenAI
+from together import Together
 
 from crewai.tools import BaseTool
 from pydantic import Field
@@ -11,14 +11,14 @@ from app.core.config import settings
 
 
 class ImageGeneratorTool(BaseTool):
-    """Tool for generating images using DALL-E 3.
+    """Tool for generating images using Together.ai Flux models.
 
     Creates professional images for social media posts,
     marketing materials, and other visual content.
     """
 
     name: str = "image_generator"
-    description: str = """Generuje obrazy za pomoca DALL-E 3. Uzyj tego narzedzia gdy potrzebujesz:
+    description: str = """Generuje obrazy za pomoca Flux. Uzyj tego narzedzia gdy potrzebujesz:
     - Grafiki do posta na social media
     - Obrazu do kampanii marketingowej
     - Wizualizacji produktu lub uslugi
@@ -28,44 +28,46 @@ class ImageGeneratorTool(BaseTool):
     Przyklad: "Modern minimalist photo of a coffee cup on wooden table, morning light, professional photography"
     """
 
-    client: OpenAI | None = Field(default=None, exclude=True)
+    client: Together | None = Field(default=None, exclude=True)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        if settings.OPENAI_API_KEY:
-            self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        if settings.TOGETHER_API_KEY:
+            self.client = Together(api_key=settings.TOGETHER_API_KEY)
 
     def _run(self, prompt: str) -> str:
         """Generate image and return URL."""
         if not self.client:
-            return "Blad: Brak klucza API OpenAI. Skonfiguruj OPENAI_API_KEY w .env"
+            return "Blad: Brak klucza API Together.ai. Skonfiguruj TOGETHER_API_KEY w .env"
 
         try:
             response = self.client.images.generate(
-                model="dall-e-3",
+                model=settings.TOGETHER_IMAGE_MODEL,
                 prompt=self._enhance_prompt(prompt),
-                size="1024x1024",
-                quality="standard",
+                width=1024,
+                height=1024,
+                steps=4,
                 n=1,
             )
 
-            image_url = response.data[0].url
-            revised_prompt = response.data[0].revised_prompt
+            if response.data and len(response.data) > 0:
+                image_url = response.data[0].url
 
-            return f"""OBRAZ WYGENEROWANY POMYSLNIE!
+                return f"""OBRAZ WYGENEROWANY POMYSLNIE!
 
 URL: {image_url}
 
-Zmodyfikowany prompt: {revised_prompt}
+Model: {settings.TOGETHER_IMAGE_MODEL}
 
 UWAGA: URL jest wazny przez ograniczony czas. Pobierz obraz jak najszybciej."""
+            else:
+                return "Blad: Brak danych w odpowiedzi od Together.ai"
 
         except Exception as e:
             return f"Blad generowania obrazu: {e!s}"
 
     def _enhance_prompt(self, prompt: str) -> str:
         """Enhance prompt for better results."""
-        # Add quality modifiers if not present
         quality_terms = [
             "professional",
             "high quality",
@@ -77,7 +79,7 @@ UWAGA: URL jest wazny przez ograniczony czas. Pobierz obraz jak najszybciej."""
         has_quality = any(term in prompt.lower() for term in quality_terms)
 
         if not has_quality:
-            prompt = f"{prompt}, professional quality, high resolution"
+            prompt = f"{prompt}, professional quality, high resolution, detailed"
 
         return prompt
 
@@ -93,17 +95,17 @@ class SocialMediaImageTool(BaseTool):
     Przyklad: "Promocja kawy latte, instagram"
     """
 
-    client: OpenAI | None = Field(default=None, exclude=True)
+    client: Together | None = Field(default=None, exclude=True)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        if settings.OPENAI_API_KEY:
-            self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        if settings.TOGETHER_API_KEY:
+            self.client = Together(api_key=settings.TOGETHER_API_KEY)
 
     def _run(self, input_text: str) -> str:
         """Generate social media optimized image."""
         if not self.client:
-            return "Blad: Brak klucza API OpenAI"
+            return "Blad: Brak klucza API Together.ai"
 
         # Parse platform from input
         input_lower = input_text.lower()
@@ -126,63 +128,79 @@ class SocialMediaImageTool(BaseTool):
             "linkedin": "professional, corporate style, clean design, business-appropriate, trustworthy",
         }
 
-        enhanced_prompt = f"{input_text}. Style: {style_guide.get(platform, style_guide['instagram'])}"
+        enhanced_prompt = f"{input_text}. Style: {style_guide.get(platform, style_guide['instagram'])}, high quality, detailed"
+
+        # Platform-specific dimensions
+        dimensions = {
+            "instagram": (1024, 1024),  # Square
+            "facebook": (1024, 768),    # Landscape
+            "linkedin": (1024, 768),    # Landscape
+        }
+        width, height = dimensions.get(platform, (1024, 1024))
 
         try:
             response = self.client.images.generate(
-                model="dall-e-3",
+                model=settings.TOGETHER_IMAGE_MODEL,
                 prompt=enhanced_prompt,
-                size="1024x1024",
-                quality="standard",
+                width=width,
+                height=height,
+                steps=4,
                 n=1,
             )
 
-            return f"""OBRAZ DLA {platform.upper()} WYGENEROWANY!
+            if response.data and len(response.data) > 0:
+                return f"""OBRAZ DLA {platform.upper()} WYGENEROWANY!
 
 URL: {response.data[0].url}
 
 Platforma: {platform}
-Sugerowany format: {"1080x1080px (kwadrat)" if platform == "instagram" else "1200x630px (prostokat)"}
+Wymiary: {width}x{height}px
 
-Wskazowka: Pobierz obraz i dostosuj rozmiar do wymagan platformy."""
+Wskazowka: Pobierz obraz i dostosuj do wymagan platformy jesli potrzeba."""
+            else:
+                return "Blad: Brak danych w odpowiedzi"
 
         except Exception as e:
             return f"Blad: {e!s}"
 
 
 class ImageService:
-    """Service for image generation operations."""
+    """Service for image generation operations using Together.ai."""
 
     def __init__(self):
         self.client = None
-        if settings.OPENAI_API_KEY:
-            self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        if settings.TOGETHER_API_KEY:
+            self.client = Together(api_key=settings.TOGETHER_API_KEY)
 
     async def generate_image(
         self,
         prompt: str,
-        size: str = "1024x1024",
-        quality: str = "standard",
-        style: str = "natural",
+        width: int = 1024,
+        height: int = 1024,
+        steps: int = 4,
     ) -> dict:
-        """Generate image with DALL-E 3."""
+        """Generate image with Together.ai Flux model."""
         if not self.client:
-            raise ValueError("OpenAI API key not configured")
+            raise ValueError("Together.ai API key not configured")
 
         response = self.client.images.generate(
-            model="dall-e-3",
+            model=settings.TOGETHER_IMAGE_MODEL,
             prompt=prompt,
-            size=size,
-            quality=quality,
-            style=style,
+            width=width,
+            height=height,
+            steps=steps,
             n=1,
         )
 
+        if not response.data or len(response.data) == 0:
+            raise ValueError("No image data in response")
+
         return {
             "url": response.data[0].url,
-            "revised_prompt": response.data[0].revised_prompt,
-            "size": size,
-            "quality": quality,
+            "revised_prompt": prompt,  # Together.ai doesn't revise prompts like DALL-E
+            "width": width,
+            "height": height,
+            "model": settings.TOGETHER_IMAGE_MODEL,
         }
 
     async def generate_post_image(
@@ -199,13 +217,21 @@ class ImageService:
             "twitter": "bold, attention-grabbing, clear message",
         }
 
-        style = platform_styles.get(platform, platform_styles["instagram"])
+        platform_dimensions = {
+            "instagram": (1024, 1024),
+            "facebook": (1024, 768),
+            "linkedin": (1024, 768),
+            "twitter": (1024, 768),
+        }
 
-        prompt = f"{description}. Style: {style}"
+        style = platform_styles.get(platform, platform_styles["instagram"])
+        width, height = platform_dimensions.get(platform, (1024, 1024))
+
+        prompt = f"{description}. Style: {style}, high quality, professional photography"
         if brand_style:
             prompt += f". Brand aesthetic: {brand_style}"
 
-        return await self.generate_image(prompt)
+        return await self.generate_image(prompt, width=width, height=height)
 
     async def download_image(self, url: str) -> bytes:
         """Download image from URL and return bytes."""

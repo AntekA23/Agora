@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     TAVILY_SEARCH_DEPTH: str = "advanced"  # basic | advanced
     TAVILY_MAX_RESULTS: int = 5
 
+    # Together.ai (Image Generation)
+    TOGETHER_API_KEY: str = ""
+    TOGETHER_IMAGE_MODEL: str = "black-forest-labs/FLUX.1-schnell-Free"
+
     class Config:
         env_file = ".env"
         case_sensitive = True
