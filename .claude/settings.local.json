@@ -13,7 +13,8 @@
       "Bash(railway service:*)",
       "Bash(railway domain:*)",
       "Bash(python:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }
