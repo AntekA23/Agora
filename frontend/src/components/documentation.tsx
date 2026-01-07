@@ -139,7 +139,7 @@ export function Documentation() {
             />
             <FeatureItem
               title="Generowanie grafik"
-              description="Tworzy grafiki do postow za pomoca AI (Together.ai). Opcja dostepna przy generowaniu posta."
+              description="Tworzy grafiki do postow za pomoca modelu Nano Banana Pro (Gemini 3 Pro Image) przez Together.ai."
             />
             <FeatureItem
               title="Kampanie multi-agentowe"
@@ -414,7 +414,7 @@ export function Documentation() {
             />
             <FeatureItem
               title="Generowanie grafik AI"
-              description="Tworzenie grafik do postow przez Together.ai (model Flux)."
+              description="Tworzenie grafik do postow przez Together.ai (model Nano Banana Pro / Gemini 3 Pro Image)."
               status="available"
             />
             <FeatureItem
@@ -437,6 +437,156 @@ export function Documentation() {
               description="Tworzenie i testowanie wariantow tresci marketingowych."
               status="beta"
             />
+          </div>
+        </DocSection>
+
+        {/* Przyklady uzycia */}
+        <DocSection
+          title="Przyklady Uzycia"
+          icon={<CheckCircle className="h-5 w-5 text-muted-foreground" />}
+        >
+          <p className="text-sm text-muted-foreground mb-4">
+            Praktyczne scenariusze pokazujace jak efektywnie korzystac z Agory.
+          </p>
+
+          <div className="space-y-4">
+            {/* Use case 1 */}
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium flex items-center gap-2 mb-2">
+                <Sparkles className="h-4 w-4" />
+                Scenariusz: Tworzenie posta na Instagram
+              </h4>
+              <div className="text-sm space-y-2">
+                <p className="text-muted-foreground">
+                  <strong>Cel:</strong> Stworzyc angazujacy post promujacy nowy produkt.
+                </p>
+                <div className="bg-muted p-3 rounded text-xs">
+                  <p className="font-medium mb-1">Przykladowy brief:</p>
+                  <p className="italic">&quot;Promocja nowej kolekcji letnich sukienek. Grupa docelowa: kobiety 25-40, styl: elegancki ale swobodny. Podkreslic naturalne materialy i polska produkcje. Ton: przyjazny, inspirujacy.&quot;</p>
+                </div>
+                <div className="mt-2">
+                  <p className="font-medium text-xs mb-1">Wskazowki:</p>
+                  <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+                    <li>Im dokladniejszy brief, tym lepszy wynik</li>
+                    <li>Podaj grupe docelowa i ton komunikacji</li>
+                    <li>Zaznacz &quot;Generuj grafike&quot; jesli chcesz obrazek</li>
+                    <li>Uzyj feedbacku (gwiazdki) aby system sie uczyl</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Use case 2 */}
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium flex items-center gap-2 mb-2">
+                <FileText className="h-4 w-4" />
+                Scenariusz: Email marketingowy
+              </h4>
+              <div className="text-sm space-y-2">
+                <p className="text-muted-foreground">
+                  <strong>Cel:</strong> Napisac email z oferta specjalna dla stalych klientow.
+                </p>
+                <div className="bg-muted p-3 rounded text-xs">
+                  <p className="font-medium mb-1">Przykladowy brief:</p>
+                  <p className="italic">&quot;Email do stalych klientow sklepu z kawa. Oferta: 20% rabatu na nowa mieszanke. Podkreslic ekskluzywnosc oferty (tylko dla stalych), ograniczony czas (tydzien). Styl: ciepły, personalny, bez nachalnosci.&quot;</p>
+                </div>
+                <div className="mt-2">
+                  <p className="font-medium text-xs mb-1">Agent zwroci:</p>
+                  <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+                    <li>Temat emaila (kilka wariantow)</li>
+                    <li>Tresc emaila z CTA</li>
+                    <li>Sugestie personalizacji</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Use case 3 */}
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium flex items-center gap-2 mb-2">
+                <TrendingUp className="h-4 w-4" />
+                Scenariusz: Analiza finansowa
+              </h4>
+              <div className="text-sm space-y-2">
+                <p className="text-muted-foreground">
+                  <strong>Cel:</strong> Przeanalizowac cashflow i zidentyfikowac problemy.
+                </p>
+                <div className="bg-muted p-3 rounded text-xs">
+                  <p className="font-medium mb-1">Przykladowe dane:</p>
+                  <p className="italic">&quot;Przychody: 50 000 PLN/mies, Koszty stale: 30 000 PLN, Koszty zmienne: ~15 000 PLN. Problem: opoznienia w platnosciach od klientow (sredni 45 dni). Branża: uslugi IT.&quot;</p>
+                </div>
+                <div className="mt-2">
+                  <p className="font-medium text-xs mb-1">Agent przeanalizuje:</p>
+                  <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+                    <li>Strukture kosztow i marze</li>
+                    <li>Problemy z plynnoscia</li>
+                    <li>Rekomendacje optymalizacji</li>
+                    <li>Porownanie z benchmarkami branzy</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Use case 4 */}
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium flex items-center gap-2 mb-2">
+                <Users className="h-4 w-4" />
+                Scenariusz: Rekrutacja pracownika
+              </h4>
+              <div className="text-sm space-y-2">
+                <p className="text-muted-foreground">
+                  <strong>Cel:</strong> Stworzyc ogloszenie o prace i pytania rekrutacyjne.
+                </p>
+                <div className="bg-muted p-3 rounded text-xs">
+                  <p className="font-medium mb-1">Przykladowy brief:</p>
+                  <p className="italic">&quot;Stanowisko: Junior Marketing Specialist. Wymagania: znajomosc social media, podstawy Canva, jezyk angielski B2. Mile widziane: doswiadczenie w e-commerce. Oferujemy: praca hybrydowa, szkolenia, mlody zespol. Lokalizacja: Warszawa.&quot;</p>
+                </div>
+                <div className="mt-2">
+                  <p className="font-medium text-xs mb-1">Uzyskasz:</p>
+                  <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+                    <li>Profesjonalne ogloszenie o prace</li>
+                    <li>Widełki wynagrodzen (research rynkowy)</li>
+                    <li>Pytania rekrutacyjne dopasowane do stanowiska</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Use case 5 */}
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium flex items-center gap-2 mb-2">
+                <Briefcase className="h-4 w-4" />
+                Scenariusz: Oferta handlowa
+              </h4>
+              <div className="text-sm space-y-2">
+                <p className="text-muted-foreground">
+                  <strong>Cel:</strong> Przygotowac spersonalizowana oferte dla klienta.
+                </p>
+                <div className="bg-muted p-3 rounded text-xs">
+                  <p className="font-medium mb-1">Przykladowy brief:</p>
+                  <p className="italic">&quot;Klient: srednia firma produkcyjna, 50 pracownikow. Potrzeba: system CRM + szkolenie. Budzet: ~50 000 PLN. Decydent: dyrektor operacyjny. Problem klienta: chaos w danych klientow, brak historii kontaktow.&quot;</p>
+                </div>
+                <div className="mt-2">
+                  <p className="font-medium text-xs mb-1">Agent stworzy:</p>
+                  <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+                    <li>Spersonalizowana oferte adresujaca problemy klienta</li>
+                    <li>Argumenty ROI i korzysci</li>
+                    <li>Proponowany harmonogram wdrozenia</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 p-3 bg-muted rounded-lg">
+            <p className="text-sm font-medium">Ogolne wskazowki:</p>
+            <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
+              <li><strong>Dokladnosc briefu</strong> - im wiecej szczegolow podasz, tym lepszy wynik</li>
+              <li><strong>Kontekst firmy</strong> - uzupelnij ustawienia marki w Ustawieniach</li>
+              <li><strong>Feedback</strong> - oceniaj wyniki (1-5 gwiazdek) aby system sie uczyl</li>
+              <li><strong>Iteracja</strong> - mozesz poprosic o poprawki podajac nowy brief</li>
+              <li><strong>Weryfikacja</strong> - zawsze przejrzyj wynik przed uzyciem</li>
+            </ul>
           </div>
         </DocSection>
 
