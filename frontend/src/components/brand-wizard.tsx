@@ -197,7 +197,7 @@ export function BrandWizard({ open, onOpenChange, onComplete }: BrandWizardProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onClose={() => onOpenChange(false)}>
+      <DialogContent className="max-w-4xl w-[90vw] max-h-[85vh] overflow-hidden flex flex-col" onClose={() => onOpenChange(false)}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {(() => {
