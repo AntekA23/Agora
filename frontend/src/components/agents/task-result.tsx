@@ -12,6 +12,20 @@ interface TaskResultProps {
   onClose?: () => void;
 }
 
+interface TaskOutput {
+  content?: string;
+  post_text?: string;
+  hashtags?: string;
+  suggested_time?: string;
+  image_prompt?: string;
+  total_gross?: number;
+  total_net?: number;
+  vat?: number;
+  total_income?: number;
+  total_expenses?: number;
+  balance?: number;
+}
+
 const statusConfig = {
   pending: { label: "Oczekuje", variant: "secondary" as const },
   processing: { label: "Przetwarzanie", variant: "info" as const },
@@ -108,115 +122,118 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
           </div>
         )}
 
-        {task.status === "completed" && task.output && (
-          <div className="space-y-4">
-            {/* Export buttons */}
-            <div className="flex gap-2 justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => copyToClipboard(String(task.output?.content || ""))}
-              >
-                {copied ? (
-                  <Check className="h-4 w-4 mr-1" />
-                ) : (
-                  <Copy className="h-4 w-4 mr-1" />
-                )}
-                {copied ? "Skopiowano" : "Kopiuj"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => exportToFile(String(task.output?.content || ""), getExportFilename())}
-              >
-                <Download className="h-4 w-4 mr-1" />
-                Eksportuj
-              </Button>
+        {task.status === "completed" && task.output && (() => {
+          const output = task.output as TaskOutput;
+          return (
+            <div className="space-y-4">
+              {/* Export buttons */}
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyToClipboard(output.content || "")}
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 mr-1" />
+                  ) : (
+                    <Copy className="h-4 w-4 mr-1" />
+                  )}
+                  {copied ? "Skopiowano" : "Kopiuj"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportToFile(output.content || "", getExportFilename())}
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Eksportuj
+                </Button>
+              </div>
+
+              {/* Main content */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Wygenerowany content</Label>
+                <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm max-h-96 overflow-y-auto">
+                  {output.content || ""}
+                </div>
+              </div>
+
+              {/* Extracted fields for Instagram */}
+              {output.post_text && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Tekst postu</Label>
+                  <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                    {output.post_text}
+                  </div>
+                </div>
+              )}
+
+              {output.hashtags && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Hashtagi</Label>
+                  <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                    {output.hashtags}
+                  </div>
+                </div>
+              )}
+
+              {output.suggested_time && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Sugerowany czas publikacji</Label>
+                  <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                    {output.suggested_time}
+                  </div>
+                </div>
+              )}
+
+              {output.image_prompt && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Opis grafiki</Label>
+                  <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                    {output.image_prompt}
+                  </div>
+                </div>
+              )}
+
+              {/* Finance specific fields */}
+              {output.total_gross !== undefined && (
+                <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Netto</Label>
+                    <p className="font-medium">{output.total_net?.toFixed(2)} PLN</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">VAT (23%)</Label>
+                    <p className="font-medium">{output.vat?.toFixed(2)} PLN</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Brutto</Label>
+                    <p className="font-medium">{output.total_gross?.toFixed(2)} PLN</p>
+                  </div>
+                </div>
+              )}
+
+              {output.balance !== undefined && (
+                <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Przychody</Label>
+                    <p className="font-medium text-green-600">{output.total_income?.toFixed(2)} PLN</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Wydatki</Label>
+                    <p className="font-medium text-red-600">{output.total_expenses?.toFixed(2)} PLN</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Bilans</Label>
+                    <p className={`font-medium ${(output.balance ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {output.balance?.toFixed(2)} PLN
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-
-            {/* Main content */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Wygenerowany content</Label>
-              <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm max-h-96 overflow-y-auto">
-                {String(task.output.content || "")}
-              </div>
-            </div>
-
-            {/* Extracted fields for Instagram */}
-            {task.output.post_text && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Tekst postu</Label>
-                <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                  {String(task.output.post_text)}
-                </div>
-              </div>
-            )}
-
-            {task.output.hashtags && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Hashtagi</Label>
-                <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                  {String(task.output.hashtags)}
-                </div>
-              </div>
-            )}
-
-            {task.output.suggested_time && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Sugerowany czas publikacji</Label>
-                <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                  {String(task.output.suggested_time)}
-                </div>
-              </div>
-            )}
-
-            {task.output.image_prompt && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Opis grafiki</Label>
-                <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                  {String(task.output.image_prompt)}
-                </div>
-              </div>
-            )}
-
-            {/* Finance specific fields */}
-            {task.output.total_gross !== undefined && (
-              <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Netto</Label>
-                  <p className="font-medium">{task.output.total_net?.toFixed(2)} PLN</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">VAT (23%)</Label>
-                  <p className="font-medium">{task.output.vat?.toFixed(2)} PLN</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Brutto</Label>
-                  <p className="font-medium">{task.output.total_gross?.toFixed(2)} PLN</p>
-                </div>
-              </div>
-            )}
-
-            {task.output.balance !== undefined && (
-              <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Przychody</Label>
-                  <p className="font-medium text-green-600">{task.output.total_income?.toFixed(2)} PLN</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Wydatki</Label>
-                  <p className="font-medium text-red-600">{task.output.total_expenses?.toFixed(2)} PLN</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Bilans</Label>
-                  <p className={`font-medium ${task.output.balance >= 0 ? "text-green-600" : "text-red-600"}`}>
-                    {task.output.balance?.toFixed(2)} PLN
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+          );
+        })()}
 
         {onClose && (
           <Button variant="outline" onClick={onClose} className="w-full">
