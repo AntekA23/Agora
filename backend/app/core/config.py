@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     # MongoDB
     MONGODB_URL: str = "mongodb://localhost:27017"
-    MONGODB_DB_NAME: str = "agora"
+    MONGODB_DB_NAME: str = "test"  # Using "test" so data is visible in Railway UI
 
     @property
     def MONGODB_URI(self) -> str:
