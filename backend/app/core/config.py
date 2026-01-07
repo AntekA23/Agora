@@ -42,6 +42,14 @@ class Settings(BaseSettings):
     TOGETHER_API_KEY: str = ""
     TOGETHER_IMAGE_MODEL: str = "google/gemini-3-pro-image"
 
+    # Meta (Facebook/Instagram) Integration
+    META_APP_ID: str = ""
+    META_APP_SECRET: str = ""
+
+    # Google Calendar Integration
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+
     class Config:
         env_file = ".env"
         case_sensitive = True

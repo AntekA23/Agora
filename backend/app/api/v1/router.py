@@ -7,8 +7,10 @@ from app.api.v1.endpoints import (
     campaigns,
     companies,
     dev,
+    experiments,
     finance,
     health,
+    integrations,
     suggestions,
     tasks,
     users,
@@ -26,4 +28,6 @@ api_router.include_router(tasks.router)
 api_router.include_router(analytics.router)
 api_router.include_router(suggestions.router)
 api_router.include_router(campaigns.router)
+api_router.include_router(integrations.router)
+api_router.include_router(experiments.router)
 api_router.include_router(dev.router)
