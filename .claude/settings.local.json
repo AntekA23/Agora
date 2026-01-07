@@ -11,7 +11,9 @@
       "Bash(git push:*)",
       "Bash(railway status:*)",
       "Bash(railway service:*)",
-      "Bash(railway domain:*)"
+      "Bash(railway domain:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)"
     ]
   }
 }

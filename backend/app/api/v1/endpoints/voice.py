@@ -226,14 +226,14 @@ async def get_supported_languages() -> dict[str, str]:
 # ============================================================================
 
 
-@router.post("/agent/conversation")
+@router.post("/agent/conversation", response_model=None)
 async def voice_conversation(
     current_user: CurrentUser,
     db: Database,
     audio: UploadFile = File(...),
     voice: str = Query("nova"),
     return_audio: bool = Query(True),
-) -> dict[str, Any] | Response:
+):
     """Have a voice conversation with the AI agent.
 
     Accepts audio input, returns text and optionally audio response.

@@ -283,3 +283,7 @@ def get_finance_tools() -> list[BaseTool]:
         TavilySearchTool(),
         TavilyMarketDataTool(),
     ]
+
+
+# Default search tool instance for convenience imports
+search_tool = TavilySearchTool()
