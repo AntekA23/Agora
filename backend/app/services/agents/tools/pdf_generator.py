@@ -4,11 +4,24 @@ import base64
 from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from jinja2 import Environment, BaseLoader
-from weasyprint import HTML, CSS
 
 from app.core.config import settings
+
+# Lazy import for WeasyPrint - only load when actually generating PDFs
+# This allows the app to start even if WeasyPrint system dependencies are missing
+_weasyprint_html = None
+
+
+def _get_weasyprint_html():
+    """Lazy load WeasyPrint HTML class."""
+    global _weasyprint_html
+    if _weasyprint_html is None:
+        from weasyprint import HTML
+        _weasyprint_html = HTML
+    return _weasyprint_html
 
 
 # Invoice HTML Template
@@ -448,7 +461,8 @@ class PDFGenerator:
             due_date=(today + timedelta(days=due_days)).strftime("%d.%m.%Y"),
         )
 
-        # Generate PDF
+        # Generate PDF (lazy load WeasyPrint)
+        HTML = _get_weasyprint_html()
         html = HTML(string=html_content)
         return html.write_pdf()
 
@@ -475,6 +489,8 @@ class PDFGenerator:
             generated_at=datetime.now().strftime("%d.%m.%Y %H:%M"),
         )
 
+        # Generate PDF (lazy load WeasyPrint)
+        HTML = _get_weasyprint_html()
         html = HTML(string=html_content)
         return html.write_pdf()
 
