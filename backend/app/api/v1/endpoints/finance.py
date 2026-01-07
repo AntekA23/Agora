@@ -2,11 +2,13 @@ from datetime import datetime
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import Response
 
 from app.api.deps import CurrentUser, Database
 from app.schemas.finance import InvoiceTaskInput, CashflowTaskInput
 from app.schemas.task import TaskResponse
 from app.services.task_queue import get_task_queue
+from app.services.agents.tools.pdf_generator import pdf_generator
 
 router = APIRouter(prefix="/agents/finance", tags=["finance"])
 
@@ -158,4 +160,126 @@ async def create_cashflow_task(
         error=None,
         created_at=now,
         completed_at=None,
+    )
+
+
+# ============================================================================
+# PDF GENERATION ENDPOINTS
+# ============================================================================
+
+
+@router.get("/tasks/{task_id}/pdf")
+async def get_invoice_pdf(
+    task_id: str,
+    current_user: CurrentUser,
+    db: Database,
+) -> Response:
+    """Generate PDF for a completed invoice task."""
+    if not current_user.company_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User must belong to a company")
+
+    # Get task
+    try:
+        task = await db.tasks.find_one({
+            "_id": ObjectId(task_id),
+            "company_id": current_user.company_id,
+            "agent": "invoice_worker",
+        })
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+    if task["status"] != "completed":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Task not completed yet")
+
+    # Get company data for seller info
+    company = await db.companies.find_one({"_id": ObjectId(current_user.company_id)})
+    if not company:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
+
+    # Get knowledge base for company details
+    knowledge = company.get("knowledge", {})
+
+    # Prepare invoice data
+    task_input = task["input"]
+    task_output = task.get("output", {})
+
+    # Generate invoice number
+    invoice_count = await db.tasks.count_documents({
+        "company_id": current_user.company_id,
+        "agent": "invoice_worker",
+        "status": "completed",
+    })
+    invoice_number = f"FV/{datetime.now().year}/{invoice_count:04d}"
+
+    # Generate PDF
+    pdf_bytes = pdf_generator.generate_invoice_pdf(
+        invoice_number=invoice_number,
+        seller_name=company["name"],
+        seller_address=knowledge.get("company_description", ""),
+        seller_nip=knowledge.get("custom_facts", [""])[0] if knowledge.get("custom_facts") else "",
+        seller_email=knowledge.get("social_media", {}).get("email", ""),
+        client_name=task_input.get("client_name", ""),
+        client_address=task_input.get("client_address", ""),
+        items=task_input.get("items", []),
+        notes=task_input.get("notes", ""),
+        bank_account=knowledge.get("custom_facts", ["", ""])[1] if len(knowledge.get("custom_facts", [])) > 1 else "",
+    )
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{invoice_number.replace("/", "-")}.pdf"'
+        }
+    )
+
+
+@router.get("/tasks/{task_id}/report-pdf")
+async def get_cashflow_report_pdf(
+    task_id: str,
+    current_user: CurrentUser,
+    db: Database,
+) -> Response:
+    """Generate PDF report for a completed cashflow analysis task."""
+    if not current_user.company_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User must belong to a company")
+
+    try:
+        task = await db.tasks.find_one({
+            "_id": ObjectId(task_id),
+            "company_id": current_user.company_id,
+            "agent": "cashflow_analyst",
+        })
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+    if task["status"] != "completed":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Task not completed yet")
+
+    task_output = task.get("output", {})
+    task_input = task["input"]
+
+    # Generate PDF
+    pdf_bytes = pdf_generator.generate_report_pdf(
+        title="Analiza Cashflow",
+        subtitle=f"Okres: {task_input.get('period', 'nieznany')}",
+        content=task_output.get("content", "Brak danych"),
+        total_income=task_output.get("total_income", 0),
+        total_expenses=task_output.get("total_expenses", 0),
+        balance=task_output.get("balance", 0),
+        show_summary=True,
+    )
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="cashflow-report-{task_id[:8]}.pdf"'
+        }
     )
