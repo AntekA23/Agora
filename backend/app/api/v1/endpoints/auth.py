@@ -87,8 +87,6 @@ async def register(data: RegisterRequest, db: Database) -> TokenResponse:
     user_result = await db.users.insert_one(user_doc)
     user_id = str(user_result.inserted_id)
 
-    await db.users.update_one({"_id": user_result.inserted_id}, {"$set": {"_id": user_id}})
-
     return TokenResponse(
         access_token=create_access_token(user_id),
         refresh_token=create_refresh_token(user_id),
