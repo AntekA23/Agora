@@ -10,8 +10,13 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
 
     # MongoDB
-    MONGODB_URI: str = "mongodb://localhost:27017"
+    MONGODB_URL: str = "mongodb://localhost:27017"
     MONGODB_DB_NAME: str = "agora"
+
+    @property
+    def MONGODB_URI(self) -> str:
+        """Alias for backwards compatibility."""
+        return self.MONGODB_URL
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
