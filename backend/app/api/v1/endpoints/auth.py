@@ -34,7 +34,10 @@ def slugify(text: str) -> str:
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(data: RegisterRequest, db: Database) -> TokenResponse:
     """Register a new user and company."""
+    print(f"[REGISTER] Attempting to register: email={data.email}, company={data.company_name}")
+
     existing_user = await db.users.find_one({"email": data.email})
+    print(f"[REGISTER] Existing user check: {existing_user is not None}")
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -42,7 +45,10 @@ async def register(data: RegisterRequest, db: Database) -> TokenResponse:
         )
 
     company_slug = slugify(data.company_name)
+    print(f"[REGISTER] Company slug: '{data.company_name}' -> '{company_slug}'")
+
     existing_company = await db.companies.find_one({"slug": company_slug})
+    print(f"[REGISTER] Existing company check: {existing_company}")
     if existing_company:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
