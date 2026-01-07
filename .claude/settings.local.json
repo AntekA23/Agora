@@ -5,7 +5,13 @@
       "Bash(git init:*)",
       "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" auth status)",
       "Bash(railway whoami:*)",
-      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" auth login --web -p https)"
+      "Bash(\"C:/Program Files/GitHub CLI/gh.exe\" auth login --web -p https)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(railway status:*)",
+      "Bash(railway service:*)",
+      "Bash(railway domain:*)"
     ]
   }
 }
