@@ -138,7 +138,7 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
             <div className="space-y-2">
               <Label className="text-sm font-medium">Wygenerowany content</Label>
               <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm max-h-96 overflow-y-auto">
-                {task.output.content}
+                {String(task.output.content || "")}
               </div>
             </div>
 
@@ -147,7 +147,7 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Tekst postu</Label>
                 <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                  {task.output.post_text}
+                  {String(task.output.post_text)}
                 </div>
               </div>
             )}
@@ -156,7 +156,7 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Hashtagi</Label>
                 <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                  {task.output.hashtags}
+                  {String(task.output.hashtags)}
                 </div>
               </div>
             )}
@@ -165,7 +165,7 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Sugerowany czas publikacji</Label>
                 <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                  {task.output.suggested_time}
+                  {String(task.output.suggested_time)}
                 </div>
               </div>
             )}
@@ -174,7 +174,7 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Opis grafiki</Label>
                 <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                  {task.output.image_prompt}
+                  {String(task.output.image_prompt)}
                 </div>
               </div>
             )}
