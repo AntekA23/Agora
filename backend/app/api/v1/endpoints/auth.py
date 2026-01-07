@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
 
+from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -131,7 +132,15 @@ async def refresh_tokens(data: RefreshTokenRequest, db: Database) -> TokenRespon
         )
 
     user_id = payload.get("sub")
-    user = await db.users.find_one({"_id": user_id})
+    try:
+        object_id = ObjectId(user_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID",
+        )
+
+    user = await db.users.find_one({"_id": object_id})
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

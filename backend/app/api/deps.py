@@ -1,5 +1,6 @@
 from typing import Annotated
 
+from bson import ObjectId
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -40,7 +41,16 @@ async def get_current_user(
             detail="Invalid token payload",
         )
 
-    user_data = await db.users.find_one({"_id": user_id})
+    # Convert string ID to ObjectId for MongoDB query
+    try:
+        object_id = ObjectId(user_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID format",
+        )
+
+    user_data = await db.users.find_one({"_id": object_id})
     if not user_data:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
