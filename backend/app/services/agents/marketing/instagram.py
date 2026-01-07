@@ -1,10 +1,41 @@
-"""Instagram content creation agent with Tavily web search capabilities."""
+"""Instagram content creation agent with Tavily web search and memory capabilities."""
 
 from crewai import Agent, Task, Crew, Process
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
 from app.services.agents.tools.web_search import TavilySearchTool, TavilyTrendsTool
+from app.services.agents.memory import memory_service, MemoryType
+
+
+async def get_memory_context(company_id: str, brief: str) -> str:
+    """Get relevant memory context for the task."""
+    context_parts = []
+
+    # Get similar successful tasks
+    similar_tasks = await memory_service.get_similar_successful_tasks(
+        company_id=company_id,
+        brief=brief,
+        agent="instagram_specialist",
+        limit=2,
+    )
+
+    if similar_tasks:
+        context_parts.append("INSPIRACJE Z POPRZEDNICH UDANYCH POSTOW:")
+        for task in similar_tasks:
+            context_parts.append(f"- {task['content'][:300]}...")
+
+    # Get company context
+    company_context = await memory_service.get_company_context(
+        company_id=company_id,
+        query=brief,
+        limit=3,
+    )
+
+    if company_context:
+        context_parts.append(company_context)
+
+    return "\n\n".join(context_parts) if context_parts else ""
 
 
 def create_instagram_crew(
@@ -14,6 +45,7 @@ def create_instagram_crew(
     language: str = "pl",
     include_hashtags: bool = True,
     post_type: str = "post",
+    memory_context: str = "",
 ) -> Crew:
     """Create a CrewAI crew for Instagram content creation with web research."""
 
@@ -55,6 +87,16 @@ def create_instagram_crew(
         verbose=False,
     )
 
+    # Build memory context for agent
+    memory_info = ""
+    if memory_context:
+        memory_info = f"""
+
+        PAMIEC I DOSWIADCZENIE:
+        {memory_context}
+
+        Wykorzystaj te informacje aby tworzyc lepszy content."""
+
     # Instagram Specialist - creates the actual content
     instagram_specialist = Agent(
         role="Instagram Specialist",
@@ -64,7 +106,7 @@ def create_instagram_crew(
         Korzystasz z danych z researchu aby tworzyc lepszy content.
         Brand voice: {brand_voice}.
         Grupa docelowa: {target_audience or 'szeroka publicznosc'}.
-        Zawsze piszesz po polsku.""",
+        Zawsze piszesz po polsku.{memory_info}""",
         llm=llm,
         verbose=False,
     )
@@ -161,8 +203,17 @@ async def generate_instagram_post(
     language: str = "pl",
     include_hashtags: bool = True,
     post_type: str = "post",
+    company_id: str = "",
 ) -> dict:
-    """Generate Instagram post using CrewAI agents with Tavily research."""
+    """Generate Instagram post using CrewAI agents with Tavily research and memory."""
+
+    # Get memory context if company_id provided
+    memory_context = ""
+    if company_id:
+        try:
+            memory_context = await get_memory_context(company_id, brief)
+        except Exception:
+            pass  # Memory is optional, continue without it
 
     crew = create_instagram_crew(
         brief=brief,
@@ -171,6 +222,7 @@ async def generate_instagram_post(
         language=language,
         include_hashtags=include_hashtags,
         post_type=post_type,
+        memory_context=memory_context,
     )
 
     # Run the crew (this is synchronous in CrewAI, we wrap it)
@@ -185,6 +237,7 @@ async def generate_instagram_post(
         "post_type": post_type,
         "brief": brief,
         "used_tavily": True,
+        "used_memory": bool(memory_context),
     }
 
     # Try to extract structured data

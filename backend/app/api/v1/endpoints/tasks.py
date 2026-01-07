@@ -12,6 +12,7 @@ from app.schemas.feedback import (
     AgentFeedbackStats,
 )
 from app.services.task_queue import get_task_queue
+from app.services.agents.memory import memory_service
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -290,6 +291,19 @@ async def submit_feedback(
         {"_id": ObjectId(task_id)},
         {"$set": {"feedback_id": str(result.inserted_id), "has_feedback": True}}
     )
+
+    # Store successful task in memory for learning (rating >= 4)
+    if data.rating >= 4 and task.get("output"):
+        try:
+            await memory_service.store_successful_task(
+                company_id=current_user.company_id,
+                agent=task["agent"],
+                task_input=task["input"],
+                task_output=task["output"],
+                rating=data.rating,
+            )
+        except Exception:
+            pass  # Memory storage is optional, don't fail the request
 
     return TaskFeedbackResponse(
         id=str(result.inserted_id),

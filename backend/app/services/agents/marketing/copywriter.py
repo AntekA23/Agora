@@ -1,10 +1,41 @@
-"""Copywriter agent with Tavily web search for SEO and market research."""
+"""Copywriter agent with Tavily web search and memory for SEO and market research."""
 
 from crewai import Agent, Task, Crew, Process
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
 from app.services.agents.tools.web_search import TavilySearchTool, TavilyCompetitorTool
+from app.services.agents.memory import memory_service
+
+
+async def get_copywriter_memory_context(company_id: str, brief: str) -> str:
+    """Get relevant memory context for copywriting task."""
+    context_parts = []
+
+    # Get similar successful tasks
+    similar_tasks = await memory_service.get_similar_successful_tasks(
+        company_id=company_id,
+        brief=brief,
+        agent="copywriter",
+        limit=2,
+    )
+
+    if similar_tasks:
+        context_parts.append("INSPIRACJE Z POPRZEDNICH UDANYCH TEKSTOW:")
+        for task in similar_tasks:
+            context_parts.append(f"- {task['content'][:300]}...")
+
+    # Get company context
+    company_context = await memory_service.get_company_context(
+        company_id=company_id,
+        query=brief,
+        limit=3,
+    )
+
+    if company_context:
+        context_parts.append(company_context)
+
+    return "\n\n".join(context_parts) if context_parts else ""
 
 
 async def generate_marketing_copy(
@@ -14,8 +45,17 @@ async def generate_marketing_copy(
     target_audience: str = "",
     language: str = "pl",
     max_length: int | None = None,
+    company_id: str = "",
 ) -> dict:
-    """Generate marketing copy using CrewAI agents with Tavily research."""
+    """Generate marketing copy using CrewAI agents with Tavily research and memory."""
+
+    # Get memory context if company_id provided
+    memory_context = ""
+    if company_id:
+        try:
+            memory_context = await get_copywriter_memory_context(company_id, brief)
+        except Exception:
+            pass  # Memory is optional
 
     llm = ChatOpenAI(
         model="gpt-4o-mini",
@@ -52,6 +92,16 @@ async def generate_marketing_copy(
         verbose=False,
     )
 
+    # Build memory context for agent
+    memory_info = ""
+    if memory_context:
+        memory_info = f"""
+
+        PAMIEC I DOSWIADCZENIE:
+        {memory_context}
+
+        Wykorzystaj te informacje aby tworzyc lepsze teksty."""
+
     copywriter = Agent(
         role="Copywriter",
         goal="Tworz przekonujace teksty marketingowe ktore sprzedaja",
@@ -60,7 +110,7 @@ async def generate_marketing_copy(
         Wykorzystujesz dane z researchu do tworzenia lepszych tekstow.
         Brand voice: {brand_voice}.
         Grupa docelowa: {target_audience or 'szeroka publicznosc'}.
-        Zawsze piszesz po polsku.""",
+        Zawsze piszesz po polsku.{memory_info}""",
         llm=llm,
         verbose=False,
     )
@@ -155,4 +205,5 @@ Zwroc w formacie:
         "copy_type": copy_type,
         "brief": brief,
         "used_tavily": True,
+        "used_memory": bool(memory_context),
     }

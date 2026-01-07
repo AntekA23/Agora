@@ -36,7 +36,7 @@ async def process_instagram_task(ctx: dict, task_id: str, task_input: dict[str, 
 
         company_settings = company.get("settings", {}) if company else {}
 
-        # Generate content
+        # Generate content with memory
         result = await generate_instagram_post(
             brief=task_input.get("brief", ""),
             brand_voice=company_settings.get("brand_voice", "profesjonalny"),
@@ -44,6 +44,7 @@ async def process_instagram_task(ctx: dict, task_id: str, task_input: dict[str, 
             language=company_settings.get("language", "pl"),
             include_hashtags=task_input.get("include_hashtags", True),
             post_type=task_input.get("post_type", "post"),
+            company_id=task["company_id"],
         )
 
         # Update task with result
@@ -98,6 +99,7 @@ async def process_copywriter_task(ctx: dict, task_id: str, task_input: dict[str,
             target_audience=company_settings.get("target_audience", ""),
             language=company_settings.get("language", "pl"),
             max_length=task_input.get("max_length"),
+            company_id=task["company_id"],
         )
 
         await db.tasks.update_one(
