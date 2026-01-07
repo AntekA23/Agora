@@ -49,3 +49,6 @@ htmlcov/
 .cache/
 tmp/
 temp/
+
+# MCP config (contains API keys)
+.mcp.json
