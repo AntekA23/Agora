@@ -84,8 +84,11 @@ async def register(data: RegisterRequest, db: Database) -> TokenResponse:
         "created_at": now,
         "updated_at": now,
     }
+    print(f"[REGISTER] Creating user with email: {data.email}")
     user_result = await db.users.insert_one(user_doc)
     user_id = str(user_result.inserted_id)
+    print(f"[REGISTER] User created with id: {user_id}")
+    print(f"[REGISTER] Acknowledged: {user_result.acknowledged}")
 
     return TokenResponse(
         access_token=create_access_token(user_id),
