@@ -11,6 +11,12 @@ class MongoDB:
 
     async def connect(self) -> None:
         """Connect to MongoDB."""
+        # Log connection info (mask password for security)
+        uri = settings.MONGODB_URI
+        masked_uri = uri.split("@")[-1] if "@" in uri else uri
+        print(f"[MongoDB] Connecting to: ...@{masked_uri}")
+        print(f"[MongoDB] Database name: {settings.MONGODB_DB_NAME}")
+
         self.client = AsyncIOMotorClient(settings.MONGODB_URI)
         self.db = self.client[settings.MONGODB_DB_NAME]
 
