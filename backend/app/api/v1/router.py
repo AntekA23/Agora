@@ -10,6 +10,7 @@ from app.api.v1.endpoints import (
     dev,
     experiments,
     finance,
+    goals,
     health,
     hr,
     integrations,
@@ -61,6 +62,9 @@ api_router.include_router(alerts.router)
 
 # Voice Interface (Phase 4)
 api_router.include_router(voice.router)
+
+# Autonomous Goals (Phase 5)
+api_router.include_router(goals.router)
 
 # Development
 api_router.include_router(dev.router)
