@@ -13,23 +13,47 @@ from app.services.database.indexes import create_indexes
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan - startup and shutdown events."""
-    await mongodb.connect()
-    await redis_client.connect()
+    # Connect to databases with error handling
+    try:
+        await mongodb.connect()
+        print("MongoDB connected successfully")
+    except Exception as e:
+        print(f"MongoDB connection failed: {e}")
+
+    try:
+        await redis_client.connect()
+        print("Redis connected successfully")
+    except Exception as e:
+        print(f"Redis connection failed: {e}")
+
     try:
         await qdrant_service.connect()
+        print("Qdrant connected successfully")
     except Exception:
         pass  # Qdrant is optional
 
     # Create database indexes for performance
     try:
-        await create_indexes(mongodb.db)
+        if mongodb.db:
+            await create_indexes(mongodb.db)
     except Exception:
         pass  # Indexes may already exist
 
     yield
-    qdrant_service.disconnect()
-    await redis_client.disconnect()
-    await mongodb.disconnect()
+
+    # Cleanup
+    try:
+        qdrant_service.disconnect()
+    except Exception:
+        pass
+    try:
+        await redis_client.disconnect()
+    except Exception:
+        pass
+    try:
+        await mongodb.disconnect()
+    except Exception:
+        pass
 
 
 app = FastAPI(
