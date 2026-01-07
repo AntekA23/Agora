@@ -121,7 +121,7 @@ export function Documentation() {
         {/* Marketing */}
         <DocSection
           title="Marketing"
-          icon={<Sparkles className="h-5 w-5 text-pink-500" />}
+          icon={<Sparkles className="h-5 w-5 text-muted-foreground" />}
           defaultOpen={true}
         >
           <p className="text-sm text-muted-foreground mb-4">
@@ -163,7 +163,7 @@ export function Documentation() {
         {/* Finanse */}
         <DocSection
           title="Finanse"
-          icon={<TrendingUp className="h-5 w-5 text-green-500" />}
+          icon={<TrendingUp className="h-5 w-5 text-muted-foreground" />}
         >
           <p className="text-sm text-muted-foreground mb-4">
             Agenci finansowi pomagaja w analizie i dokumentacji finansowej.
@@ -198,7 +198,7 @@ export function Documentation() {
         {/* HR */}
         <DocSection
           title="HR - Zasoby Ludzkie"
-          icon={<Users className="h-5 w-5 text-blue-500" />}
+          icon={<Users className="h-5 w-5 text-muted-foreground" />}
         >
           <p className="text-sm text-muted-foreground mb-4">
             Agenci HR pomagaja w rekrutacji i zarzadzaniu zespolem.
@@ -223,7 +223,7 @@ export function Documentation() {
         {/* Sprzedaz */}
         <DocSection
           title="Sprzedaz"
-          icon={<Briefcase className="h-5 w-5 text-orange-500" />}
+          icon={<Briefcase className="h-5 w-5 text-muted-foreground" />}
         >
           <p className="text-sm text-muted-foreground mb-4">
             Agenci sprzedazowi wspieraja procesy sprzedazowe.
@@ -248,7 +248,7 @@ export function Documentation() {
         {/* Prawo */}
         <DocSection
           title="Prawo"
-          icon={<Scale className="h-5 w-5 text-purple-500" />}
+          icon={<Scale className="h-5 w-5 text-muted-foreground" />}
         >
           <p className="text-sm text-muted-foreground mb-4">
             Agenci prawni pomagaja w dokumentach i compliance.
@@ -281,7 +281,7 @@ export function Documentation() {
         {/* Wsparcie */}
         <DocSection
           title="Wsparcie Klienta"
-          icon={<HeadphonesIcon className="h-5 w-5 text-cyan-500" />}
+          icon={<HeadphonesIcon className="h-5 w-5 text-muted-foreground" />}
         >
           <p className="text-sm text-muted-foreground mb-4">
             Agenci wsparcia pomagaja w obsludze klientow.
@@ -306,7 +306,7 @@ export function Documentation() {
         {/* Monitoring */}
         <DocSection
           title="Monitoring i Alerty"
-          icon={<Bell className="h-5 w-5 text-red-500" />}
+          icon={<Bell className="h-5 w-5 text-muted-foreground" />}
         >
           <p className="text-sm text-muted-foreground mb-4">
             System proaktywnych powiadomien i monitoringu.
@@ -336,7 +336,7 @@ export function Documentation() {
         {/* Glos */}
         <DocSection
           title="Interfejs Glosowy"
-          icon={<Mic className="h-5 w-5 text-indigo-500" />}
+          icon={<Mic className="h-5 w-5 text-muted-foreground" />}
         >
           <p className="text-sm text-muted-foreground mb-4">
             Komunikacja glosowa z systemem (wymaga API OpenAI).
@@ -371,7 +371,7 @@ export function Documentation() {
         {/* Cele autonomiczne */}
         <DocSection
           title="Cele Autonomiczne"
-          icon={<Target className="h-5 w-5 text-emerald-500" />}
+          icon={<Target className="h-5 w-5 text-muted-foreground" />}
         >
           <p className="text-sm text-muted-foreground mb-4">
             System autonomicznej realizacji celow biznesowych.
@@ -404,7 +404,7 @@ export function Documentation() {
         {/* Dodatkowe funkcje */}
         <DocSection
           title="Dodatkowe Funkcje"
-          icon={<Zap className="h-5 w-5 text-yellow-500" />}
+          icon={<Zap className="h-5 w-5 text-muted-foreground" />}
         >
           <div className="space-y-1">
             <FeatureItem
@@ -443,7 +443,7 @@ export function Documentation() {
         {/* Znane ograniczenia */}
         <DocSection
           title="Znane Ograniczenia"
-          icon={<AlertTriangle className="h-5 w-5 text-orange-500" />}
+          icon={<AlertTriangle className="h-5 w-5 text-muted-foreground" />}
         >
           <p className="text-sm text-muted-foreground mb-4">
             Obecne ograniczenia i niedociagniecia systemu.
@@ -498,7 +498,7 @@ export function Documentation() {
         {/* Wymagane klucze API */}
         <DocSection
           title="Wymagane Klucze API"
-          icon={<Globe className="h-5 w-5 text-gray-500" />}
+          icon={<Globe className="h-5 w-5 text-muted-foreground" />}
         >
           <p className="text-sm text-muted-foreground mb-4">
             System wymaga kluczy API do dzialania niektorych funkcji.
