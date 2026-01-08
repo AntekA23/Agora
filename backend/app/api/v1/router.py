@@ -6,6 +6,7 @@ from app.api.v1.endpoints import (
     analytics,
     assistant,
     auth,
+    batch,
     campaigns,
     companies,
     conversations,
@@ -55,6 +56,9 @@ api_router.include_router(scheduled_content.router)
 
 # Schedule Rules (Recurring Content Automation)
 api_router.include_router(schedule_rules.router)
+
+# Batch Content Generation
+api_router.include_router(batch.router)
 
 # Marketing Agents
 api_router.include_router(agents.router)

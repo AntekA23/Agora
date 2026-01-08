@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   Calendar,
   Filter,
@@ -12,6 +13,7 @@ import {
   AlertTriangle,
   Loader2,
   AlertCircle,
+  Rocket,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -174,10 +176,18 @@ export default function QueuePage() {
             Zarządzaj zaplanowanymi publikacjami
           </p>
         </div>
-        <Button onClick={() => router.push("/chat")}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nowa treść
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/queue/batch">
+              <Rocket className="h-4 w-4 mr-2" />
+              Wypełnij kalendarz
+            </Link>
+          </Button>
+          <Button onClick={() => router.push("/chat")}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nowa treść
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
