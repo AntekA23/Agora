@@ -1,9 +1,8 @@
 """API endpoints for batch content generation."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import CurrentUser, Database
 from app.schemas.batch import (
     BatchGenerationRequest,
     BatchGenerationResponse,
@@ -20,8 +19,8 @@ router = APIRouter(prefix="/batch", tags=["batch"])
 @router.post("/generate", response_model=BatchGenerationResponse)
 async def generate_batch(
     request: BatchGenerationRequest,
-    db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    db: Database,
+    current_user: CurrentUser,
 ):
     """
     Generate a batch of content.
@@ -29,14 +28,14 @@ async def generate_batch(
     This endpoint generates multiple pieces of content at once based on a theme.
     Content can be automatically scheduled or saved as drafts.
     """
-    company_id = current_user.get("company_id")
-    if not company_id:
+    if not current_user.company_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User must belong to a company",
         )
 
-    user_id = str(current_user["_id"])
+    company_id = current_user.company_id
+    user_id = current_user.id
 
     generator = BatchGenerator(db)
 
@@ -106,18 +105,19 @@ async def generate_batch(
 
 @router.get("/stats", response_model=BatchStatsResponse)
 async def get_batch_stats(
-    db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    db: Database,
+    current_user: CurrentUser,
 ):
     """
     Get batch generation statistics for the company.
     """
-    company_id = current_user.get("company_id")
-    if not company_id:
+    if not current_user.company_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User must belong to a company",
         )
+
+    company_id = current_user.company_id
 
     # Count scheduled content (approximation of batch stats)
     # In production, we'd track batches separately
@@ -178,15 +178,15 @@ async def get_batch_stats(
 @router.delete("/scheduled/{content_id}")
 async def remove_from_batch(
     content_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    db: Database,
+    current_user: CurrentUser,
 ):
     """
     Remove a single item from scheduled batch content.
     """
     from bson import ObjectId
 
-    company_id = current_user.get("company_id")
+    company_id = current_user.company_id
 
     result = await db.scheduled_content.delete_one({
         "_id": ObjectId(content_id),

@@ -1,9 +1,8 @@
 """API endpoints for notifications."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from fastapi import APIRouter, HTTPException, Query, status
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import CurrentUser, Database
 from app.schemas.notification import (
     NotificationResponse,
     NotificationListResponse,
@@ -21,15 +20,15 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 @router.get("", response_model=NotificationListResponse)
 async def get_notifications(
+    db: Database,
+    current_user: CurrentUser,
     include_read: bool = Query(False, description="Include read notifications"),
     include_dismissed: bool = Query(False, description="Include dismissed notifications"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
 ):
     """Get notifications for the current user."""
-    user_id = str(current_user["_id"])
+    user_id = current_user.id
 
     service = NotificationService(db)
     notifications, total = await service.get_user_notifications(
@@ -72,11 +71,11 @@ async def get_notifications(
 
 @router.get("/count", response_model=NotificationCountResponse)
 async def get_notification_count(
-    db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    db: Database,
+    current_user: CurrentUser,
 ):
     """Get count of unread notifications."""
-    user_id = str(current_user["_id"])
+    user_id = current_user.id
 
     service = NotificationService(db)
     unread_count = await service.get_unread_count(user_id)
@@ -87,11 +86,11 @@ async def get_notification_count(
 @router.post("/mark-read", response_model=MarkReadResponse)
 async def mark_notifications_read(
     request: MarkReadRequest,
-    db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    db: Database,
+    current_user: CurrentUser,
 ):
     """Mark notifications as read."""
-    user_id = str(current_user["_id"])
+    user_id = current_user.id
     service = NotificationService(db)
 
     if request.notification_ids:
@@ -110,11 +109,11 @@ async def mark_notifications_read(
 @router.post("/{notification_id}/read", response_model=MarkReadResponse)
 async def mark_single_notification_read(
     notification_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    db: Database,
+    current_user: CurrentUser,
 ):
     """Mark a single notification as read."""
-    user_id = str(current_user["_id"])
+    user_id = current_user.id
     service = NotificationService(db)
 
     success = await service.mark_as_read(notification_id, user_id)
@@ -131,11 +130,11 @@ async def mark_single_notification_read(
 @router.post("/dismiss", response_model=DismissResponse)
 async def dismiss_notifications(
     request: DismissRequest,
-    db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    db: Database,
+    current_user: CurrentUser,
 ):
     """Dismiss notifications."""
-    user_id = str(current_user["_id"])
+    user_id = current_user.id
     service = NotificationService(db)
 
     if request.notification_ids:
@@ -154,11 +153,11 @@ async def dismiss_notifications(
 @router.delete("/{notification_id}")
 async def dismiss_single_notification(
     notification_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    db: Database,
+    current_user: CurrentUser,
 ):
     """Dismiss a single notification."""
-    user_id = str(current_user["_id"])
+    user_id = current_user.id
     service = NotificationService(db)
 
     success = await service.dismiss_notification(notification_id, user_id)
