@@ -7,7 +7,7 @@ and routing to appropriate agents based on the conversation.
 from datetime import datetime
 from typing import Any
 
-from app.services.assistant import assistant_router, IntentType
+from app.services.assistant import assistant_router, Intent
 
 
 class ConversationService:
@@ -27,24 +27,24 @@ class ConversationService:
 
     # Intent to agent mapping
     INTENT_AGENTS = {
-        IntentType.SOCIAL_MEDIA_POST: ["instagram_specialist"],
-        IntentType.MARKETING_COPY: ["copywriter"],
-        IntentType.CAMPAIGN: ["campaign_service", "instagram_specialist", "copywriter"],
-        IntentType.INVOICE: ["invoice_specialist"],
-        IntentType.CASHFLOW_ANALYSIS: ["cashflow_analyst"],
-        IntentType.JOB_POSTING: ["hr_recruiter"],
-        IntentType.INTERVIEW_QUESTIONS: ["hr_recruiter"],
-        IntentType.ONBOARDING: ["hr_recruiter"],
-        IntentType.SALES_PROPOSAL: ["copywriter"],
-        IntentType.LEAD_SCORING: ["copywriter"],
-        IntentType.FOLLOWUP_EMAIL: ["copywriter"],
-        IntentType.CONTRACT_REVIEW: ["legal_terms"],
-        IntentType.PRIVACY_POLICY: ["legal_terms"],
-        IntentType.TERMS_OF_SERVICE: ["legal_terms"],
-        IntentType.GDPR_CHECK: ["legal_terms"],
-        IntentType.TICKET_RESPONSE: ["support_agent"],
-        IntentType.FAQ: ["support_agent"],
-        IntentType.SENTIMENT_ANALYSIS: ["support_agent"],
+        Intent.SOCIAL_MEDIA_POST: ["instagram_specialist"],
+        Intent.MARKETING_COPY: ["copywriter"],
+        Intent.CAMPAIGN: ["campaign_service", "instagram_specialist", "copywriter"],
+        Intent.INVOICE: ["invoice_specialist"],
+        Intent.CASHFLOW_ANALYSIS: ["cashflow_analyst"],
+        Intent.JOB_POSTING: ["hr_recruiter"],
+        Intent.INTERVIEW_QUESTIONS: ["hr_recruiter"],
+        Intent.ONBOARDING: ["hr_recruiter"],
+        Intent.SALES_PROPOSAL: ["copywriter"],
+        Intent.LEAD_SCORING: ["copywriter"],
+        Intent.FOLLOWUP_EMAIL: ["copywriter"],
+        Intent.CONTRACT_REVIEW: ["legal_terms"],
+        Intent.PRIVACY_POLICY: ["legal_terms"],
+        Intent.TERMS_OF_SERVICE: ["legal_terms"],
+        Intent.GDPR_CHECK: ["legal_terms"],
+        Intent.TICKET_RESPONSE: ["support_agent"],
+        Intent.FAQ: ["support_agent"],
+        Intent.SENTIMENT_ANALYSIS: ["support_agent"],
     }
 
     async def process_message(
@@ -175,7 +175,7 @@ class ConversationService:
     def _build_task_info(
         self,
         agent: str,
-        intent: IntentType,
+        intent: Intent,
         params: dict[str, Any],
     ) -> dict[str, Any] | None:
         """Build task creation info for an agent."""

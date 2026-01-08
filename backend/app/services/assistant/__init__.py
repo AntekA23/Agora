@@ -2,6 +2,7 @@
 
 from app.services.assistant.router import (
     AssistantRouter,
+    Intent,
     IntentResult,
     QuickAction,
     assistant_router,
@@ -10,6 +11,7 @@ from app.services.assistant.router import (
 
 __all__ = [
     "AssistantRouter",
+    "Intent",
     "IntentResult",
     "QuickAction",
     "assistant_router",
