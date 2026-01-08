@@ -254,6 +254,85 @@ async def process_cashflow_task(ctx: dict, task_id: str, task_input: dict[str, A
         raise
 
 
+async def process_schedule_rules(ctx: dict) -> dict:
+    """
+    Process schedule rules - check for rules that need execution.
+
+    This should be run periodically (e.g., every hour via cron).
+    """
+    from datetime import timedelta
+
+    db = await get_mongodb()
+    now = datetime.utcnow()
+    results = {"processed": 0, "errors": 0, "skipped": 0}
+
+    # Find active rules that are due for execution
+    cursor = db.schedule_rules.find({
+        "is_active": True,
+        "next_execution": {"$lte": now},
+    })
+
+    async for rule in cursor:
+        rule_id = str(rule["_id"])
+
+        try:
+            # Check queue size
+            queue_count = await db.scheduled_content.count_documents({
+                "source_rule_id": rule_id,
+                "status": {"$in": ["draft", "queued", "scheduled", "pending_approval"]},
+            })
+
+            if queue_count >= rule.get("max_queue_size", 4):
+                results["skipped"] += 1
+                # Still update next_execution to prevent repeated checks
+                await _update_next_execution(db, rule)
+                continue
+
+            # Execute the rule
+            from app.services.scheduling.rule_executor import RuleExecutor
+
+            executor = RuleExecutor(db)
+            await executor.execute_rule(rule)
+
+            # Update next_execution
+            await _update_next_execution(db, rule)
+
+            results["processed"] += 1
+
+        except Exception as e:
+            # Log error and update rule
+            await db.schedule_rules.update_one(
+                {"_id": rule["_id"]},
+                {
+                    "$set": {
+                        "last_error": str(e),
+                        "updated_at": now,
+                    }
+                },
+            )
+            results["errors"] += 1
+
+    return results
+
+
+async def _update_next_execution(db, rule: dict) -> None:
+    """Update the next_execution time for a rule."""
+    from app.api.v1.endpoints.schedule_rules import _calculate_next_execution
+
+    schedule = rule.get("schedule", {})
+    next_exec = _calculate_next_execution(schedule)
+
+    await db.schedule_rules.update_one(
+        {"_id": rule["_id"]},
+        {
+            "$set": {
+                "next_execution": next_exec,
+                "updated_at": datetime.utcnow(),
+            }
+        },
+    )
+
+
 class WorkerSettings:
     """ARQ Worker settings."""
 
@@ -262,6 +341,17 @@ class WorkerSettings:
         process_copywriter_task,
         process_invoice_task,
         process_cashflow_task,
+        process_schedule_rules,
+    ]
+
+    # Cron jobs for periodic tasks
+    cron_jobs = [
+        # Run schedule rules processor every hour
+        {
+            "coroutine": process_schedule_rules,
+            "hour": {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23},
+            "minute": 0,
+        },
     ]
 
     @staticmethod

@@ -3,7 +3,13 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
-import { Calendar as CalendarIcon, Clock, Loader2 } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  Clock,
+  Loader2,
+  Sparkles,
+  Check,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -37,6 +43,12 @@ import {
   platformLabels,
   contentTypeLabels,
 } from "@/hooks/use-scheduled-content";
+import {
+  useSchedulingSuggestions,
+  formatConfidence,
+  type SuggestTimeResponse,
+  type TimeAlternative,
+} from "@/hooks/use-scheduling-suggestions";
 
 interface ScheduleDialogProps {
   open: boolean;
@@ -66,19 +78,30 @@ export function ScheduleDialog({
   onSuccess,
 }: ScheduleDialogProps) {
   const createMutation = useCreateScheduledContent();
+  const suggestionsMutation = useSchedulingSuggestions();
 
   const [title, setTitle] = React.useState("");
-  const [scheduleOption, setScheduleOption] = React.useState<ScheduleOption>("queue");
+  const [scheduleOption, setScheduleOption] =
+    React.useState<ScheduleOption>("queue");
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState("12:00");
+  const [suggestions, setSuggestions] =
+    React.useState<SuggestTimeResponse | null>(null);
+  const [selectedSuggestion, setSelectedSuggestion] = React.useState<
+    "primary" | number | "custom"
+  >("primary");
 
   // Generate title from content
   React.useEffect(() => {
     if (open && !title) {
       const text = content?.text || content?.caption || "";
       const firstLine = text.split("\n")[0];
-      const generated = firstLine.slice(0, 50) + (firstLine.length > 50 ? "..." : "");
-      setTitle(generated || `${contentTypeLabels[contentType]} - ${new Date().toLocaleDateString("pl-PL")}`);
+      const generated =
+        firstLine.slice(0, 50) + (firstLine.length > 50 ? "..." : "");
+      setTitle(
+        generated ||
+          `${contentTypeLabels[contentType]} - ${new Date().toLocaleDateString("pl-PL")}`
+      );
     }
   }, [open, content, contentType, title]);
 
@@ -89,8 +112,32 @@ export function ScheduleDialog({
       setScheduleOption("queue");
       setSelectedDate(undefined);
       setSelectedTime("12:00");
+      setSuggestions(null);
+      setSelectedSuggestion("primary");
     }
   }, [open]);
+
+  // Fetch suggestions when "ai" option is selected
+  React.useEffect(() => {
+    if (scheduleOption === "ai" && !suggestions && !suggestionsMutation.isPending) {
+      suggestionsMutation.mutate(
+        {
+          content_type: contentType,
+          platform,
+          content,
+          preferences: {
+            avoid_weekends: false,
+          },
+        },
+        {
+          onSuccess: (data) => {
+            setSuggestions(data);
+            setSelectedSuggestion("primary");
+          },
+        }
+      );
+    }
+  }, [scheduleOption, suggestions, contentType, platform, content, suggestionsMutation]);
 
   const handleSubmit = async () => {
     let scheduledFor: string | undefined;
@@ -100,6 +147,17 @@ export function ScheduleDialog({
       const date = new Date(selectedDate);
       date.setHours(hours, minutes, 0, 0);
       scheduledFor = date.toISOString();
+    } else if (scheduleOption === "ai" && suggestions) {
+      if (selectedSuggestion === "primary") {
+        scheduledFor = suggestions.suggested_time;
+      } else if (selectedSuggestion === "custom" && selectedDate) {
+        const [hours, minutes] = selectedTime.split(":").map(Number);
+        const date = new Date(selectedDate);
+        date.setHours(hours, minutes, 0, 0);
+        scheduledFor = date.toISOString();
+      } else if (typeof selectedSuggestion === "number") {
+        scheduledFor = suggestions.alternatives[selectedSuggestion]?.time;
+      }
     }
 
     try {
@@ -132,9 +190,14 @@ export function ScheduleDialog({
     return options;
   }, []);
 
+  const formatSuggestionDate = (isoString: string) => {
+    const date = new Date(isoString);
+    return format(date, "EEEE, d MMM 'o' HH:mm", { locale: pl });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5" />
@@ -171,15 +234,177 @@ export function ScheduleDialog({
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
+                <RadioGroupItem value="ai" id="ai" />
+                <Label htmlFor="ai" className="font-normal cursor-pointer flex items-center gap-1">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  Pozwól AI wybrać optymalny czas
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
                 <RadioGroupItem value="schedule" id="schedule" />
-                <Label htmlFor="schedule" className="font-normal cursor-pointer">
+                <Label
+                  htmlFor="schedule"
+                  className="font-normal cursor-pointer"
+                >
                   Zaplanuj na konkretny czas
                 </Label>
               </div>
             </RadioGroup>
           </div>
 
-          {/* Date & Time Picker */}
+          {/* AI Suggestions */}
+          {scheduleOption === "ai" && (
+            <div className="space-y-3 pl-6">
+              {suggestionsMutation.isPending ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Analizuję optymalny czas...
+                </div>
+              ) : suggestions ? (
+                <div className="space-y-3">
+                  {/* Primary Suggestion */}
+                  <div
+                    className={cn(
+                      "p-3 rounded-lg border-2 cursor-pointer transition-colors",
+                      selectedSuggestion === "primary"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    )}
+                    onClick={() => setSelectedSuggestion("primary")}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <span className="font-medium">
+                          {formatSuggestionDate(suggestions.suggested_time)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {formatConfidence(suggestions.confidence)} pewności
+                        </span>
+                        {selectedSuggestion === "primary" && (
+                          <Check className="h-4 w-4 text-primary" />
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {suggestions.reasoning}
+                    </p>
+                  </div>
+
+                  {/* Alternatives */}
+                  {suggestions.alternatives.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Alternatywy:
+                      </p>
+                      {suggestions.alternatives.map(
+                        (alt: TimeAlternative, index: number) => (
+                          <div
+                            key={index}
+                            className={cn(
+                              "p-2 rounded-lg border cursor-pointer transition-colors text-sm",
+                              selectedSuggestion === index
+                                ? "border-primary bg-primary/5"
+                                : "border-border hover:border-primary/50"
+                            )}
+                            onClick={() => setSelectedSuggestion(index)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>{formatSuggestionDate(alt.time)}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {formatConfidence(alt.score)}
+                                </span>
+                                {selectedSuggestion === index && (
+                                  <Check className="h-4 w-4 text-primary" />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+
+                  {/* Custom option */}
+                  <div
+                    className={cn(
+                      "p-2 rounded-lg border cursor-pointer transition-colors text-sm",
+                      selectedSuggestion === "custom"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    )}
+                    onClick={() => setSelectedSuggestion("custom")}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      <span>Wybierz własny termin</span>
+                      {selectedSuggestion === "custom" && (
+                        <Check className="h-4 w-4 text-primary ml-auto" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Custom Date/Time Picker */}
+                  {selectedSuggestion === "custom" && (
+                    <div className="flex gap-3 mt-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-[160px] justify-start text-left font-normal",
+                              !selectedDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {selectedDate ? (
+                              format(selectedDate, "d MMM yyyy", { locale: pl })
+                            ) : (
+                              "Wybierz datę"
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={setSelectedDate}
+                            disabled={(date) => date < new Date()}
+                            locale={pl}
+                          />
+                        </PopoverContent>
+                      </Popover>
+
+                      <Select
+                        value={selectedTime}
+                        onValueChange={setSelectedTime}
+                      >
+                        <SelectTrigger className="w-[100px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeOptions.map((time) => (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              ) : suggestionsMutation.isError ? (
+                <div className="text-sm text-destructive">
+                  Nie udało się pobrać sugestii. Wybierz inną opcję.
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {/* Date & Time Picker (manual option) */}
           {scheduleOption === "schedule" && (
             <div className="space-y-3 pl-6">
               <div className="flex gap-3">
@@ -254,7 +479,10 @@ export function ScheduleDialog({
             disabled={
               createMutation.isPending ||
               !title ||
-              (scheduleOption === "schedule" && !selectedDate)
+              (scheduleOption === "schedule" && !selectedDate) ||
+              (scheduleOption === "ai" &&
+                selectedSuggestion === "custom" &&
+                !selectedDate)
             }
           >
             {createMutation.isPending ? (

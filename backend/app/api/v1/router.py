@@ -19,6 +19,7 @@ from app.api.v1.endpoints import (
     legal,
     onboarding,
     sales,
+    schedule_rules,
     scheduled_content,
     suggestions,
     support,
@@ -51,6 +52,9 @@ api_router.include_router(templates.router)
 
 # Scheduled Content (Content Queue)
 api_router.include_router(scheduled_content.router)
+
+# Schedule Rules (Recurring Content Automation)
+api_router.include_router(schedule_rules.router)
 
 # Marketing Agents
 api_router.include_router(agents.router)

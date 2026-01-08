@@ -10,6 +10,7 @@ import {
   TrendingUp,
   FileText,
   Calendar,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Asystent", href: "/chat", icon: Bot },
   { name: "Kolejka", href: "/queue", icon: Calendar },
+  { name: "Automatyzacje", href: "/automation", icon: Sparkles },
   { name: "Zadania", href: "/tasks", icon: MessageSquare },
   { name: "Marketing", href: "/marketing", icon: TrendingUp },
   { name: "Finanse", href: "/finance", icon: FileText },

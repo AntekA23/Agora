@@ -17,6 +17,11 @@ from app.schemas.scheduled_content import (
     ScheduledContentStats,
     ScheduledContentUpdate,
 )
+from app.schemas.scheduling import (
+    SuggestTimeRequest,
+    SuggestTimeResponse,
+)
+from app.services.scheduling import SchedulingIntelligence
 
 router = APIRouter(prefix="/scheduled-content", tags=["scheduled-content"])
 
@@ -173,6 +178,53 @@ async def get_stats(
         by_platform=by_platform,
         scheduled_this_week=scheduled_this_week,
         published_this_week=published_this_week,
+    )
+
+
+@router.post("/suggest-time", response_model=SuggestTimeResponse)
+async def suggest_publication_time(
+    data: SuggestTimeRequest,
+    current_user: CurrentUser,
+    db: Database,
+) -> SuggestTimeResponse:
+    """
+    Get AI suggestions for optimal publication time.
+
+    Suggests the best time to publish content based on:
+    - Platform best practices (optimal posting times)
+    - Existing scheduled content (avoiding collisions)
+    - Content urgency analysis
+    - User preferences (date range, weekend avoidance)
+    """
+    if not current_user.company_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must belong to a company",
+        )
+
+    intelligence = SchedulingIntelligence()
+
+    preferences = None
+    if data.preferences:
+        preferences = {
+            "earliest": data.preferences.earliest,
+            "latest": data.preferences.latest,
+            "avoid_weekends": data.preferences.avoid_weekends,
+        }
+
+    result = await intelligence.suggest_time(
+        company_id=current_user.company_id,
+        content_type=data.content_type,
+        platform=data.platform,
+        content=data.content,
+        preferences=preferences,
+    )
+
+    return SuggestTimeResponse(
+        suggested_time=result["suggested_time"],
+        confidence=result["confidence"],
+        reasoning=result["reasoning"],
+        alternatives=result["alternatives"],
     )
 
 
