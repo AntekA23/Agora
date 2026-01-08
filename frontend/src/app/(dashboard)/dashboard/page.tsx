@@ -11,6 +11,7 @@ import { CommandInput } from "@/components/command-input";
 import { QuickActions } from "@/components/quick-actions";
 import { FollowUpDialog } from "@/components/follow-up-dialog";
 import { TemplatePicker, TemplateForm } from "@/components/templates";
+import { SmartNotifications, ContentCalendar } from "@/components/suggestions";
 import {
   CheckCircle,
   Clock,
@@ -264,6 +265,12 @@ export default function CommandCenterPage() {
             Wszystkie szablony
           </Button>
         </div>
+      </div>
+
+      {/* Suggestions and Calendar Grid */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <SmartNotifications maxItems={4} showTrends={true} />
+        <ContentCalendar daysAhead={30} />
       </div>
 
       {recentTasks.length > 0 && (
