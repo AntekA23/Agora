@@ -3,67 +3,114 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { useUpdateCompany } from "@/hooks/use-company";
+import {
+  useAnalyzeWebsite,
+  useCompleteSmartSetup,
+  ExtractedInfo,
+} from "@/hooks/use-onboarding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   ArrowRight,
   ArrowLeft,
   Building2,
-  Target,
   Sparkles,
   CheckCircle,
-  Loader2
+  Loader2,
+  Globe,
+  Wand2,
+  AlertCircle,
+  Edit2,
 } from "lucide-react";
 
 const steps = [
-  { id: 1, title: "Twoja firma", icon: Building2 },
-  { id: 2, title: "Grupa docelowa", icon: Target },
-  { id: 3, title: "Styl komunikacji", icon: Sparkles },
+  { id: 1, title: "Podstawy", icon: Building2 },
+  { id: 2, title: "Weryfikacja", icon: Sparkles },
 ];
 
-export default function OnboardingPage() {
+export default function SmartSetupPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const updateCompany = useUpdateCompany();
+  const analyzeWebsite = useAnalyzeWebsite();
+  const completeSetup = useCompleteSmartSetup();
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [extractedInfo, setExtractedInfo] = useState<ExtractedInfo | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Step 1 data
   const [formData, setFormData] = useState({
+    companyName: "",
+    description: "",
+    websiteUrl: "",
+  });
+
+  // Step 2 data (editable extracted info)
+  const [editableData, setEditableData] = useState({
     industry: "",
-    size: "small",
     targetAudience: "",
     brandVoice: "",
+    productsServices: [] as string[],
+    suggestedHashtags: [] as string[],
   });
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleNext = () => {
-    if (currentStep < 3) {
-      setCurrentStep(currentStep + 1);
+  const updateEditableField = (field: string, value: string | string[]) => {
+    setEditableData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleAnalyze = async () => {
+    try {
+      const result = await analyzeWebsite.mutateAsync({
+        url: formData.websiteUrl || undefined,
+        company_name: formData.companyName,
+        description: formData.description || undefined,
+      });
+
+      setExtractedInfo(result);
+      setEditableData({
+        industry: result.industry,
+        targetAudience: result.target_audience,
+        brandVoice: result.brand_voice,
+        productsServices: result.products_services,
+        suggestedHashtags: result.suggested_hashtags,
+      });
+      setCurrentStep(2);
+    } catch {
+      // Even on error, move to step 2 with empty data
+      setCurrentStep(2);
     }
   };
 
   const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
+      setIsEditing(false);
     }
   };
 
   const handleFinish = async () => {
-    await updateCompany.mutateAsync({
-      industry: formData.industry,
-      size: formData.size,
-      settings: {
-        brand_voice: formData.brandVoice,
-        target_audience: formData.targetAudience,
-        language: "pl",
-      },
+    await completeSetup.mutateAsync({
+      company_name: formData.companyName,
+      description: formData.description,
+      website_url: formData.websiteUrl || undefined,
+      industry: editableData.industry,
+      target_audience: editableData.targetAudience,
+      brand_voice: editableData.brandVoice,
+      skip_analysis: true, // We already have the data
     });
     router.push("/dashboard");
   };
@@ -71,22 +118,50 @@ export default function OnboardingPage() {
   const canProceed = () => {
     switch (currentStep) {
       case 1:
-        return formData.industry.length > 0;
+        return formData.companyName.length >= 2;
       case 2:
-        return formData.targetAudience.length > 0;
-      case 3:
-        return formData.brandVoice.length > 0;
+        return true; // Can always finish, data is optional
       default:
         return false;
     }
   };
+
+  const getSourceBadge = () => {
+    if (!extractedInfo) return null;
+
+    switch (extractedInfo.source) {
+      case "website":
+        return (
+          <Badge variant="default" className="gap-1">
+            <Globe className="h-3 w-3" />
+            Ze strony www
+          </Badge>
+        );
+      case "ai_suggestion":
+        return (
+          <Badge variant="secondary" className="gap-1">
+            <Wand2 className="h-3 w-3" />
+            Sugestia AI
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline" className="gap-1">
+            <AlertCircle className="h-3 w-3" />
+            Uzupelnij recznie
+          </Badge>
+        );
+    }
+  };
+
+  const isLoading = analyzeWebsite.isPending || completeSetup.isPending;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         {/* Progress */}
         <div className="mb-8">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-center items-center gap-4">
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-center">
                 <div
@@ -112,12 +187,14 @@ export default function OnboardingPage() {
               </div>
             ))}
           </div>
-          <div className="flex justify-between mt-2">
+          <div className="flex justify-center gap-24 mt-2">
             {steps.map((step) => (
               <span
                 key={step.id}
                 className={`text-xs ${
-                  currentStep >= step.id ? "text-foreground" : "text-muted-foreground"
+                  currentStep >= step.id
+                    ? "text-foreground"
+                    : "text-muted-foreground"
                 }`}
               >
                 {step.title}
@@ -129,116 +206,200 @@ export default function OnboardingPage() {
         <Card>
           <CardHeader>
             <CardTitle>
-              {currentStep === 1 && `Witaj, ${user?.name?.split(" ")[0] || ""}!`}
-              {currentStep === 2 && "Kto jest Twoim klientem?"}
-              {currentStep === 3 && "Jak komunikuje sie Twoja marka?"}
+              {currentStep === 1 &&
+                `Witaj, ${user?.name?.split(" ")[0] || ""}!`}
+              {currentStep === 2 && "Sprawdz dane Twojej firmy"}
             </CardTitle>
             <CardDescription>
-              {currentStep === 1 && "Opowiedz nam o swojej firmie, zebysmy mogli lepiej dostosowac agentow AI."}
-              {currentStep === 2 && "Zdefiniuj swoja grupe docelowa - to pomoze agentom tworzyc trafniejszy content."}
-              {currentStep === 3 && "Okresl ton komunikacji - agenci beda go naladowac w kazdym zadaniu."}
+              {currentStep === 1 &&
+                "Podaj podstawowe informacje - reszte wyciagniemy automatycznie."}
+              {currentStep === 2 && (
+                <span className="flex items-center gap-2">
+                  {getSourceBadge()}
+                  <span>Mozesz edytowac jesli cos sie nie zgadza.</span>
+                </span>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Step 1: Company Info */}
+            {/* Step 1: Basic Info */}
             {currentStep === 1 && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="industry">Branza</Label>
+                  <Label htmlFor="companyName">Nazwa firmy *</Label>
                   <Input
-                    id="industry"
-                    value={formData.industry}
-                    onChange={(e) => updateField("industry", e.target.value)}
-                    placeholder="np. e-commerce, uslugi IT, gastronomia..."
+                    id="companyName"
+                    value={formData.companyName}
+                    onChange={(e) => updateField("companyName", e.target.value)}
+                    placeholder="np. ABC Kosmetyki Sp. z o.o."
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="size">Wielkosc firmy</Label>
-                  <Select
-                    id="size"
-                    value={formData.size}
-                    onChange={(e) => updateField("size", e.target.value)}
-                  >
-                    <option value="micro">Mikro (1-9 pracownikow)</option>
-                    <option value="small">Mala (10-49 pracownikow)</option>
-                    <option value="medium">Srednia (50-249 pracownikow)</option>
-                  </Select>
+                  <Label htmlFor="description">
+                    Czym sie zajmujecie? (opcjonalne)
+                  </Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => updateField("description", e.target.value)}
+                    placeholder="Krotki opis firmy w 1-2 zdaniach..."
+                    rows={2}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="websiteUrl">
+                    Strona internetowa (opcjonalne)
+                  </Label>
+                  <div className="relative">
+                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="websiteUrl"
+                      value={formData.websiteUrl}
+                      onChange={(e) => updateField("websiteUrl", e.target.value)}
+                      placeholder="www.twoja-firma.pl"
+                      className="pl-10"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Jesli podasz strone, automatycznie wyciagniemy wiecej
+                    informacji o Twojej marce.
+                  </p>
                 </div>
               </div>
             )}
 
-            {/* Step 2: Target Audience */}
+            {/* Step 2: Verification / Auto-fill */}
             {currentStep === 2 && (
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="targetAudience">Opis grupy docelowej</Label>
-                  <Textarea
-                    id="targetAudience"
-                    value={formData.targetAudience}
-                    onChange={(e) => updateField("targetAudience", e.target.value)}
-                    placeholder="Opisz swojego idealnego klienta, np.:
-- Wiek: 25-40 lat
-- Plec: Kobiety
-- Zainteresowania: Zdrowy styl zycia, fitness
-- Problem: Brak czasu na gotowanie
-- Gdzie szukaja informacji: Instagram, TikTok"
-                    rows={6}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Im dokladniej opiszesz, tym lepiej agenci dostosuja komunikacje.
-                </p>
-              </div>
-            )}
-
-            {/* Step 3: Brand Voice */}
-            {currentStep === 3 && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="brandVoice">Ton komunikacji marki</Label>
-                  <Textarea
-                    id="brandVoice"
-                    value={formData.brandVoice}
-                    onChange={(e) => updateField("brandVoice", e.target.value)}
-                    placeholder="Opisz jak powinna brzmiec Twoja marka, np.:
-- Profesjonalny ale przyjazny
-- Unikamy korporacyjnego jezyka
-- Uzywamy emoji z umiarem
-- Zwracamy sie do klienta per 'Ty'
-- Lubimy zartowac, ale nie przesadzamy"
-                    rows={6}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Przyklady tonow:</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      "Profesjonalny",
-                      "Przyjazny",
-                      "Ekspertowy",
-                      "Casualowy",
-                      "Inspirujacy",
-                      "Humorystyczny",
-                    ].map((tone) => (
-                      <Button
-                        key={tone}
-                        variant="outline"
-                        size="sm"
-                        type="button"
-                        onClick={() =>
-                          updateField(
-                            "brandVoice",
-                            formData.brandVoice
-                              ? `${formData.brandVoice}, ${tone.toLowerCase()}`
-                              : tone
-                          )
-                        }
-                      >
-                        {tone}
-                      </Button>
-                    ))}
+                {extractedInfo && extractedInfo.confidence_score > 0.2 && (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      <span>
+                        Pewnosc analizy:{" "}
+                        {Math.round(extractedInfo.confidence_score * 100)}%
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsEditing(!isEditing)}
+                    >
+                      <Edit2 className="h-4 w-4 mr-1" />
+                      {isEditing ? "Gotowe" : "Edytuj"}
+                    </Button>
                   </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="industry">Branza</Label>
+                  {isEditing || !editableData.industry ? (
+                    <Input
+                      id="industry"
+                      value={editableData.industry}
+                      onChange={(e) =>
+                        updateEditableField("industry", e.target.value)
+                      }
+                      placeholder="np. e-commerce, uslugi IT, gastronomia..."
+                    />
+                  ) : (
+                    <div className="p-3 rounded-lg bg-muted/50 text-sm">
+                      {editableData.industry}
+                    </div>
+                  )}
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="targetAudience">Grupa docelowa</Label>
+                  {isEditing || !editableData.targetAudience ? (
+                    <Textarea
+                      id="targetAudience"
+                      value={editableData.targetAudience}
+                      onChange={(e) =>
+                        updateEditableField("targetAudience", e.target.value)
+                      }
+                      placeholder="Opisz swojego idealnego klienta..."
+                      rows={3}
+                    />
+                  ) : (
+                    <div className="p-3 rounded-lg bg-muted/50 text-sm whitespace-pre-wrap">
+                      {editableData.targetAudience}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="brandVoice">Ton komunikacji</Label>
+                  {isEditing || !editableData.brandVoice ? (
+                    <>
+                      <Input
+                        id="brandVoice"
+                        value={editableData.brandVoice}
+                        onChange={(e) =>
+                          updateEditableField("brandVoice", e.target.value)
+                        }
+                        placeholder="np. profesjonalny, przyjazny..."
+                      />
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {[
+                          "profesjonalny",
+                          "przyjazny",
+                          "ekspertowy",
+                          "casualowy",
+                        ].map((tone) => (
+                          <Button
+                            key={tone}
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            onClick={() =>
+                              updateEditableField(
+                                "brandVoice",
+                                editableData.brandVoice
+                                  ? `${editableData.brandVoice}, ${tone}`
+                                  : tone
+                              )
+                            }
+                          >
+                            {tone}
+                          </Button>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="p-3 rounded-lg bg-muted/50 text-sm">
+                      {editableData.brandVoice}
+                    </div>
+                  )}
+                </div>
+
+                {editableData.suggestedHashtags.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Sugerowane hashtagi</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {editableData.suggestedHashtags.map((tag, i) => (
+                        <Badge key={i} variant="secondary">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {editableData.productsServices.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Wykryte produkty/uslugi</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {editableData.productsServices.map((item, i) => (
+                        <Badge key={i} variant="outline">
+                          {item}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -247,23 +408,35 @@ export default function OnboardingPage() {
               <Button
                 variant="outline"
                 onClick={handleBack}
-                disabled={currentStep === 1}
+                disabled={currentStep === 1 || isLoading}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Wstecz
               </Button>
 
-              {currentStep < 3 ? (
-                <Button onClick={handleNext} disabled={!canProceed()}>
-                  Dalej
-                  <ArrowRight className="h-4 w-4 ml-2" />
+              {currentStep === 1 ? (
+                <Button
+                  onClick={handleAnalyze}
+                  disabled={!canProceed() || isLoading}
+                >
+                  {analyzeWebsite.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Analizuje...
+                    </>
+                  ) : (
+                    <>
+                      {formData.websiteUrl ? "Analizuj strone" : "Dalej"}
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </>
+                  )}
                 </Button>
               ) : (
                 <Button
                   onClick={handleFinish}
-                  disabled={!canProceed() || updateCompany.isPending}
+                  disabled={!canProceed() || isLoading}
                 >
-                  {updateCompany.isPending ? (
+                  {completeSetup.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Zapisywanie...
@@ -284,12 +457,19 @@ export default function OnboardingPage() {
                 variant="link"
                 className="text-muted-foreground"
                 onClick={() => router.push("/dashboard")}
+                disabled={isLoading}
               >
                 Pomin i skonfiguruj pozniej
               </Button>
             </div>
           </CardContent>
         </Card>
+
+        {/* Info about Brand Wizard */}
+        <p className="text-center text-xs text-muted-foreground mt-4">
+          Potrzebujesz wiecej opcji? Uzyj{" "}
+          <span className="font-medium">Kreatora Marki</span> w Ustawieniach.
+        </p>
       </div>
     </div>
   );
