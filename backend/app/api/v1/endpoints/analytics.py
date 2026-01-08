@@ -477,6 +477,124 @@ async def get_agent_analytics(
     }
 
 
+@router.get("/department/{department}")
+async def get_department_analytics(
+    department: str,
+    current_user: CurrentUser,
+    db: Database,
+) -> dict[str, Any]:
+    """Get department-specific dashboard analytics."""
+    if not current_user.company_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must belong to a company",
+        )
+
+    company_id = current_user.company_id
+    now = datetime.utcnow()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = today_start - timedelta(days=7)
+    month_start = today_start - timedelta(days=30)
+
+    # Total tasks for department
+    total_tasks = await db.tasks.count_documents({
+        "company_id": company_id,
+        "department": department,
+    })
+
+    # Tasks this week
+    tasks_week = await db.tasks.count_documents({
+        "company_id": company_id,
+        "department": department,
+        "created_at": {"$gte": week_start},
+    })
+
+    # Tasks by status
+    status_pipeline = [
+        {"$match": {"company_id": company_id, "department": department}},
+        {"$group": {"_id": "$status", "count": {"$sum": 1}}},
+    ]
+    status_results = await db.tasks.aggregate(status_pipeline).to_list(None)
+    tasks_by_status = {item["_id"]: item["count"] for item in status_results}
+
+    completed = tasks_by_status.get("completed", 0)
+    pending = tasks_by_status.get("pending", 0)
+    processing = tasks_by_status.get("processing", 0)
+
+    # Tasks by agent in department
+    agent_pipeline = [
+        {"$match": {"company_id": company_id, "department": department}},
+        {"$group": {"_id": "$agent", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]
+    agent_results = await db.tasks.aggregate(agent_pipeline).to_list(None)
+    tasks_by_agent = [{"agent": item["_id"], "count": item["count"]} for item in agent_results]
+
+    # Recent tasks (last 10)
+    recent_tasks = []
+    async for task in db.tasks.find({
+        "company_id": company_id,
+        "department": department,
+    }).sort("created_at", -1).limit(10):
+        recent_tasks.append({
+            "id": str(task["_id"]),
+            "agent": task.get("agent", ""),
+            "type": task.get("type", ""),
+            "status": task.get("status", ""),
+            "created_at": task["created_at"].isoformat(),
+            "title": task.get("input", {}).get("brief", task.get("input", {}).get("description", task.get("type", ""))),
+        })
+
+    # Weekly trend
+    weekly_pipeline = [
+        {
+            "$match": {
+                "company_id": company_id,
+                "department": department,
+                "created_at": {"$gte": week_start},
+            }
+        },
+        {
+            "$group": {
+                "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+                "count": {"$sum": 1},
+            }
+        },
+        {"$sort": {"_id": 1}},
+    ]
+    weekly_results = await db.tasks.aggregate(weekly_pipeline).to_list(None)
+    weekly_data = {item["_id"]: item["count"] for item in weekly_results}
+
+    # Fill in missing days
+    weekly_trend = []
+    for i in range(7):
+        date = (today_start - timedelta(days=6 - i)).strftime("%Y-%m-%d")
+        weekly_trend.append({"date": date, "count": weekly_data.get(date, 0)})
+
+    # Type distribution
+    type_pipeline = [
+        {"$match": {"company_id": company_id, "department": department}},
+        {"$group": {"_id": "$type", "count": {"$sum": 1}}},
+    ]
+    type_results = await db.tasks.aggregate(type_pipeline).to_list(None)
+    content_types = {item["_id"]: item["count"] for item in type_results}
+
+    return {
+        "department": department,
+        "summary": {
+            "total_tasks": total_tasks,
+            "tasks_this_week": tasks_week,
+            "completed": completed,
+            "pending": pending + processing,
+            "success_rate": round(completed / total_tasks * 100, 1) if total_tasks > 0 else 0,
+        },
+        "tasks_by_agent": tasks_by_agent,
+        "recent_tasks": recent_tasks,
+        "weekly_trend": weekly_trend,
+        "content_types": content_types,
+    }
+
+
 @router.get("/export")
 async def export_analytics(
     current_user: CurrentUser,
