@@ -3,21 +3,25 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { useTasks } from "@/hooks/use-tasks";
+import { useTasks, useCreateInstagramTask, useCreateCopywriterTask } from "@/hooks/use-tasks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { CommandInput } from "@/components/command-input";
 import { QuickActions } from "@/components/quick-actions";
 import { FollowUpDialog } from "@/components/follow-up-dialog";
+import { TemplatePicker, TemplateForm } from "@/components/templates";
 import {
   CheckCircle,
   Clock,
   Loader2,
   AlertCircle,
   Sparkles,
+  LayoutTemplate,
 } from "lucide-react";
 import type { InterpretResponse, QuickAction } from "@/types/assistant";
 import type { Task } from "@/types/task";
+import type { Template, TemplateCategory } from "@/hooks/use-templates";
 
 const agentLabels: Record<string, string> = {
   instagram_specialist: "Instagram",
@@ -44,11 +48,20 @@ export default function CommandCenterPage() {
   const { data: tasksData, isLoading: tasksLoading } = useTasks({
     per_page: 5,
   });
+  const createInstagramTask = useCreateInstagramTask();
+  const createCopywriterTask = useCreateCopywriterTask();
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [currentResult, setCurrentResult] =
     React.useState<InterpretResponse | null>(null);
   const [originalMessage, setOriginalMessage] = React.useState("");
+
+  // Template states
+  const [templatePickerOpen, setTemplatePickerOpen] = React.useState(false);
+  const [templateFormOpen, setTemplateFormOpen] = React.useState(false);
+  const [selectedCategory, setSelectedCategory] = React.useState<TemplateCategory | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = React.useState<Template | null>(null);
+  const [isSubmittingTemplate, setIsSubmittingTemplate] = React.useState(false);
 
   const handleInterpretResult = React.useCallback(
     (result: InterpretResponse, message: string) => {
@@ -88,6 +101,44 @@ export default function CommandCenterPage() {
     },
     [currentResult]
   );
+
+  // Template handlers
+  const handleSelectTemplate = (category: TemplateCategory, template: Template) => {
+    setSelectedCategory(category);
+    setSelectedTemplate(template);
+    setTemplatePickerOpen(false);
+    setTemplateFormOpen(true);
+  };
+
+  const handleTemplateSubmit = async (params: Record<string, unknown>, prompt: string) => {
+    if (!selectedCategory || !selectedTemplate) return;
+
+    setIsSubmittingTemplate(true);
+
+    try {
+      // Determine which agent to use based on category
+      if (selectedCategory.id === "social_media") {
+        await createInstagramTask.mutateAsync({
+          brief: prompt,
+          post_type: "post",
+          include_hashtags: true,
+        });
+      } else if (selectedCategory.id === "copywriting") {
+        await createCopywriterTask.mutateAsync({
+          brief: prompt,
+          copy_type: "ad",
+        });
+      }
+
+      // Close form and redirect to tasks
+      setTemplateFormOpen(false);
+      router.push("/tasks");
+    } catch (error) {
+      console.error("Error creating task from template:", error);
+    } finally {
+      setIsSubmittingTemplate(false);
+    }
+  };
 
   const redirectToAgent = (result: InterpretResponse) => {
     const intentRoutes: Record<string, string> = {
@@ -203,6 +254,16 @@ export default function CommandCenterPage() {
         <div className="flex justify-center">
           <QuickActions onSelect={handleQuickAction} />
         </div>
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() => setTemplatePickerOpen(true)}
+            className="gap-2"
+          >
+            <LayoutTemplate className="h-4 w-4" />
+            Wszystkie szablony
+          </Button>
+        </div>
       </div>
 
       {recentTasks.length > 0 && (
@@ -275,6 +336,21 @@ export default function CommandCenterPage() {
         result={currentResult}
         originalMessage={originalMessage}
         onSubmit={handleFollowUpSubmit}
+      />
+
+      <TemplatePicker
+        open={templatePickerOpen}
+        onOpenChange={setTemplatePickerOpen}
+        onSelectTemplate={handleSelectTemplate}
+      />
+
+      <TemplateForm
+        open={templateFormOpen}
+        onOpenChange={setTemplateFormOpen}
+        category={selectedCategory}
+        template={selectedTemplate}
+        onSubmit={handleTemplateSubmit}
+        isSubmitting={isSubmittingTemplate}
       />
     </div>
   );

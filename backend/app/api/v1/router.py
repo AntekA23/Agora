@@ -21,6 +21,7 @@ from app.api.v1.endpoints import (
     suggestions,
     support,
     tasks,
+    templates,
     users,
     voice,
 )
@@ -39,6 +40,9 @@ api_router.include_router(onboarding.router)
 
 # Assistant (Command Center)
 api_router.include_router(assistant.router)
+
+# Templates (One-Click Templates)
+api_router.include_router(templates.router)
 
 # Marketing Agents
 api_router.include_router(agents.router)
