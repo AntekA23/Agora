@@ -14,7 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Documentation } from "@/components/documentation";
 import { BrandWizard } from "@/components/brand-wizard";
-import { Loader2, Save, Building2, User, Palette, Book, Settings, Wand2, CheckCircle2 } from "lucide-react";
+import { Loader2, Save, Building2, User, Palette, Book, Settings, Wand2, CheckCircle2, Plug } from "lucide-react";
+import { IntegrationsSettings } from "@/components/settings/integrations-settings";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -72,6 +73,10 @@ export default function SettingsPage() {
           <TabsTrigger value="settings" className="gap-2">
             <Settings className="h-4 w-4" />
             Ustawienia
+          </TabsTrigger>
+          <TabsTrigger value="integrations" className="gap-2">
+            <Plug className="h-4 w-4" />
+            Integracje
           </TabsTrigger>
           <TabsTrigger value="documentation" className="gap-2">
             <Book className="h-4 w-4" />
@@ -254,6 +259,10 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="integrations">
+          <IntegrationsSettings />
         </TabsContent>
 
         <TabsContent value="documentation">
