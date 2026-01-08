@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,10 +10,27 @@ from app.services.database import mongodb, redis_client
 from app.services.database.qdrant import qdrant_service
 from app.services.database.indexes import create_indexes
 
+# Global reference to worker task
+_worker_task = None
+
+
+async def run_arq_worker():
+    """Run ARQ worker in background."""
+    from arq import run_worker
+    from app.services.task_queue import WorkerSettings
+
+    print("Starting ARQ worker in background...")
+    try:
+        await run_worker(WorkerSettings)
+    except Exception as e:
+        print(f"ARQ worker error: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan - startup and shutdown events."""
+    global _worker_task
+
     # Connect to databases with error handling
     try:
         await mongodb.connect()
@@ -39,9 +57,25 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass  # Indexes may already exist
 
+    # Start ARQ worker in background
+    try:
+        _worker_task = asyncio.create_task(run_arq_worker())
+        print("ARQ worker task started")
+    except Exception as e:
+        print(f"Failed to start ARQ worker: {e}")
+
     yield
 
     # Cleanup
+    # Cancel worker task
+    if _worker_task:
+        _worker_task.cancel()
+        try:
+            await _worker_task
+        except asyncio.CancelledError:
+            pass
+        print("ARQ worker stopped")
+
     try:
         qdrant_service.disconnect()
     except Exception:
