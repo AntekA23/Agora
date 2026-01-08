@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2,
@@ -543,14 +543,15 @@ function Step3TargetAudience({
         </div>
         <div className="space-y-2">
           <Label htmlFor="gender">Plec</Label>
-          <Select
-            id="gender"
-            value={data.gender}
-            onChange={(e) => onChange({ ...data, gender: e.target.value })}
-          >
-            <option value="all">Wszyscy</option>
-            <option value="female">Kobiety</option>
-            <option value="male">Mezczyzni</option>
+          <Select value={data.gender} onValueChange={(v) => onChange({ ...data, gender: v })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Wybierz" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Wszyscy</SelectItem>
+              <SelectItem value="female">Kobiety</SelectItem>
+              <SelectItem value="male">Mezczyzni</SelectItem>
+            </SelectContent>
           </Select>
         </div>
       </div>
@@ -652,17 +653,16 @@ function Step4ProductsServices({
     <div className="space-y-6">
       <div className="space-y-2">
         <Label htmlFor="price-positioning">Pozycjonowanie cenowe</Label>
-        <Select
-          id="price-positioning"
-          value={data.price_positioning}
-          onChange={(e) =>
-            onChange({ ...data, price_positioning: e.target.value })
-          }
-        >
-          <option value="budget">Budzetowy</option>
-          <option value="mid_range">Srednia polka</option>
-          <option value="premium">Premium</option>
-          <option value="luxury">Luksusowy</option>
+        <Select value={data.price_positioning} onValueChange={(v) => onChange({ ...data, price_positioning: v })}>
+          <SelectTrigger>
+            <SelectValue placeholder="Wybierz" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="budget">Budzetowy</SelectItem>
+            <SelectItem value="mid_range">Srednia polka</SelectItem>
+            <SelectItem value="premium">Premium</SelectItem>
+            <SelectItem value="luxury">Luksusowy</SelectItem>
+          </SelectContent>
         </Select>
       </div>
 
@@ -984,15 +984,16 @@ function Step6CommunicationStyle({
 
       <div className="space-y-2">
         <Label htmlFor="emoji-usage">Uzycie emoji</Label>
-        <Select
-          id="emoji-usage"
-          value={data.emoji_usage}
-          onChange={(e) => onChange({ ...data, emoji_usage: e.target.value })}
-        >
-          <option value="none">Brak</option>
-          <option value="minimal">Minimalne</option>
-          <option value="moderate">Umiarkowane</option>
-          <option value="frequent">Czeste</option>
+        <Select value={data.emoji_usage} onValueChange={(v) => onChange({ ...data, emoji_usage: v })}>
+          <SelectTrigger>
+            <SelectValue placeholder="Wybierz" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Brak</SelectItem>
+            <SelectItem value="minimal">Minimalne</SelectItem>
+            <SelectItem value="moderate">Umiarkowane</SelectItem>
+            <SelectItem value="frequent">Czeste</SelectItem>
+          </SelectContent>
         </Select>
       </div>
 
@@ -1042,15 +1043,16 @@ function Step7ContentPreferences({
 
       <div className="space-y-2">
         <Label htmlFor="hashtag-style">Styl hashtagow</Label>
-        <Select
-          id="hashtag-style"
-          value={data.hashtag_style}
-          onChange={(e) => onChange({ ...data, hashtag_style: e.target.value })}
-        >
-          <option value="branded">Glownie firmowe</option>
-          <option value="trending">Glownie trendujace</option>
-          <option value="mixed">Mieszane</option>
-          <option value="minimal">Minimalne</option>
+        <Select value={data.hashtag_style} onValueChange={(v) => onChange({ ...data, hashtag_style: v })}>
+          <SelectTrigger>
+            <SelectValue placeholder="Wybierz" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="branded">Glownie firmowe</SelectItem>
+            <SelectItem value="trending">Glownie trendujace</SelectItem>
+            <SelectItem value="mixed">Mieszane</SelectItem>
+            <SelectItem value="minimal">Minimalne</SelectItem>
+          </SelectContent>
         </Select>
       </div>
 

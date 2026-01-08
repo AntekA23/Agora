@@ -5,7 +5,7 @@ import { useCreateInstagramTask } from "@/hooks/use-tasks";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Instagram } from "lucide-react";
 
@@ -71,27 +71,29 @@ export function InstagramForm({ onTaskCreated }: InstagramFormProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="postType">Typ postu</Label>
-              <Select
-                id="postType"
-                value={postType}
-                onChange={(e) => setPostType(e.target.value as typeof postType)}
-              >
-                <option value="post">Post na feed</option>
-                <option value="story">Story</option>
-                <option value="reel">Reels</option>
-                <option value="carousel">Karuzela</option>
+              <Select value={postType} onValueChange={(v) => setPostType(v as typeof postType)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz typ" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="post">Post na feed</SelectItem>
+                  <SelectItem value="story">Story</SelectItem>
+                  <SelectItem value="reel">Reels</SelectItem>
+                  <SelectItem value="carousel">Karuzela</SelectItem>
+                </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="hashtags">Hashtagi</Label>
-              <Select
-                id="hashtags"
-                value={includeHashtags ? "yes" : "no"}
-                onChange={(e) => setIncludeHashtags(e.target.value === "yes")}
-              >
-                <option value="yes">Dodaj hashtagi</option>
-                <option value="no">Bez hashtagow</option>
+              <Select value={includeHashtags ? "yes" : "no"} onValueChange={(v) => setIncludeHashtags(v === "yes")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="yes">Dodaj hashtagi</SelectItem>
+                  <SelectItem value="no">Bez hashtagow</SelectItem>
+                </SelectContent>
               </Select>
             </div>
           </div>

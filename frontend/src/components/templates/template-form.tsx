@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -295,15 +295,19 @@ export function TemplateForm({
 
                 {field.type === "select" && field.options && (
                   <Select
-                    id={field.name}
-                    value={String(formData[field.name] || "")}
-                    onChange={(e) => updateField(field.name, e.target.value)}
+                    value={String(formData[field.name] || field.options[0] || "")}
+                    onValueChange={(v) => updateField(field.name, v)}
                   >
-                    {field.options.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
+                    <SelectTrigger>
+                      <SelectValue placeholder="Wybierz..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {field.options.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 )}
 

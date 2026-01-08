@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -136,14 +136,15 @@ export default function SettingsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="companySize">Wielkosc</Label>
-                    <Select
-                      id="companySize"
-                      value={companySize}
-                      onChange={(e) => setCompanySize(e.target.value)}
-                    >
-                      <option value="micro">Mikro (1-9)</option>
-                      <option value="small">Mala (10-49)</option>
-                      <option value="medium">Srednia (50-249)</option>
+                    <Select value={companySize} onValueChange={setCompanySize}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Wybierz wielkosc" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="micro">Mikro (1-9)</SelectItem>
+                        <SelectItem value="small">Mala (10-49)</SelectItem>
+                        <SelectItem value="medium">Srednia (50-249)</SelectItem>
+                      </SelectContent>
                     </Select>
                   </div>
                 </div>

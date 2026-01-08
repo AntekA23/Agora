@@ -19,6 +19,7 @@ from app.api.v1.endpoints import (
     legal,
     onboarding,
     sales,
+    scheduled_content,
     suggestions,
     support,
     tasks,
@@ -47,6 +48,9 @@ api_router.include_router(conversations.router)
 
 # Templates (One-Click Templates)
 api_router.include_router(templates.router)
+
+# Scheduled Content (Content Queue)
+api_router.include_router(scheduled_content.router)
 
 # Marketing Agents
 api_router.include_router(agents.router)

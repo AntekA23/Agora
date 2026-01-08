@@ -2,18 +2,10 @@
 
 import { useState } from "react";
 import { useTask, useRetryTask } from "@/hooks/use-tasks";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Loader2,
   Copy,
@@ -21,17 +13,16 @@ import {
   AlertCircle,
   Download,
   RefreshCw,
-  Calendar,
-  Send,
+  CalendarPlus,
   Clock,
   Image,
   FileText,
   Hash,
-  Sparkles,
   X,
-  Edit2,
   Instagram,
 } from "lucide-react";
+import { ScheduleDialog } from "@/components/queue/schedule-dialog";
+import type { ContentType, ContentPlatform } from "@/hooks/use-scheduled-content";
 
 interface TaskResultProps {
   taskId: string;
@@ -74,14 +65,25 @@ const agentIcons: Record<string, typeof Instagram> = {
   cashflow_analyst: FileText,
 };
 
+// Map agent to content type for scheduling
+const agentToContentType: Record<string, ContentType> = {
+  instagram_specialist: "instagram_post",
+  copywriter: "ad_copy",
+};
+
+// Map agent to platform for scheduling
+const agentToPlatform: Record<string, ContentPlatform> = {
+  instagram_specialist: "instagram",
+  copywriter: "other",
+};
+
 export function TaskResult({ taskId, onClose }: TaskResultProps) {
   const { data: task, isLoading, error } = useTask(taskId);
   const retryTask = useRetryTask();
+  const { toast } = useToast();
 
   const [copied, setCopied] = useState<string | null>(null);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [customDate, setCustomDate] = useState("");
-  const [customTime, setCustomTime] = useState("18:00");
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
@@ -107,24 +109,38 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
     }
   };
 
-  const handleSchedule = (when: string) => {
-    // In a real app, this would call an API to schedule the post
-    console.log("Scheduling post for:", when);
-    setScheduleOpen(false);
-    // Show success toast or notification
+  const handleScheduleSuccess = () => {
+    toast({
+      title: "Dodano do kolejki",
+      description: "Treść została dodana do kolejki publikacji.",
+    });
   };
 
-  const getScheduleLabel = (when: string) => {
-    switch (when) {
-      case "now":
-        return "Teraz";
-      case "today_evening":
-        return "Dzis 18:00";
-      case "tomorrow_noon":
-        return "Jutro 12:00";
-      default:
-        return when;
+  // Get content type and platform for scheduling based on agent type
+  const getContentType = (): ContentType => {
+    return agentToContentType[task?.agent || ""] || "other";
+  };
+
+  const getPlatform = (): ContentPlatform => {
+    return agentToPlatform[task?.agent || ""] || "other";
+  };
+
+  // Get content object for scheduling
+  const getScheduleContent = () => {
+    if (!output) return {};
+
+    if (output.post_text) {
+      return {
+        text: output.post_text,
+        hashtags: output.hashtags ? output.hashtags.split(" ").filter(Boolean) : [],
+        image_prompt: output.image_prompt,
+        image_url: output.image_url,
+      };
     }
+
+    return {
+      text: output.content || "",
+    };
   };
 
   if (isLoading) {
@@ -352,11 +368,11 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
                   Generuj inny
                 </Button>
                 <Button
-                  onClick={() => setScheduleOpen(true)}
+                  onClick={() => setScheduleDialogOpen(true)}
                   className="flex-1 gap-2"
                 >
-                  <Send className="h-4 w-4" />
-                  Zaplanuj
+                  <CalendarPlus className="h-4 w-4" />
+                  Dodaj do kolejki
                 </Button>
               </div>
             </div>
@@ -526,89 +542,17 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
       </CardContent>
 
       {/* Schedule Dialog */}
-      <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Zaplanuj publikacje
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <p className="text-sm text-muted-foreground">
-              Wybierz kiedy chcesz opublikowac post:
-            </p>
-
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                onClick={() => handleSchedule("now")}
-                className="h-auto py-3 flex-col gap-1"
-              >
-                <Send className="h-5 w-5" />
-                <span>Teraz</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleSchedule("today_evening")}
-                className="h-auto py-3 flex-col gap-1"
-              >
-                <Clock className="h-5 w-5" />
-                <span>Dzis 18:00</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleSchedule("tomorrow_noon")}
-                className="h-auto py-3 flex-col gap-1"
-              >
-                <Calendar className="h-5 w-5" />
-                <span>Jutro 12:00</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {}}
-                className="h-auto py-3 flex-col gap-1 opacity-50"
-                disabled
-              >
-                <Sparkles className="h-5 w-5" />
-                <span>Optymalny</span>
-                <span className="text-xs text-muted-foreground">Wkrotce</span>
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm">Lub wybierz date i godzine:</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  value={customDate}
-                  onChange={(e) => setCustomDate(e.target.value)}
-                  className="flex-1"
-                />
-                <Input
-                  type="time"
-                  value={customTime}
-                  onChange={(e) => setCustomTime(e.target.value)}
-                  className="w-24"
-                />
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setScheduleOpen(false)}>
-              Anuluj
-            </Button>
-            <Button
-              onClick={() => handleSchedule(`${customDate} ${customTime}`)}
-              disabled={!customDate}
-            >
-              Zaplanuj
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {task && (
+        <ScheduleDialog
+          open={scheduleDialogOpen}
+          onOpenChange={setScheduleDialogOpen}
+          content={getScheduleContent()}
+          contentType={getContentType()}
+          platform={getPlatform()}
+          sourceTaskId={task.id}
+          onSuccess={handleScheduleSuccess}
+        />
+      )}
     </Card>
   );
 }

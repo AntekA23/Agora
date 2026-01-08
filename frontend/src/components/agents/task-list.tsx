@@ -4,7 +4,7 @@ import { useTasks, useDeleteTask } from "@/hooks/use-tasks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Trash2, Eye, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import type { TaskStatus } from "@/types/task";
@@ -64,18 +64,22 @@ export function TaskList({ onSelectTask, department }: TaskListProps) {
         <CardTitle>Historia zadan</CardTitle>
         <div className="flex items-center gap-2">
           <Select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
+            value={statusFilter || "all"}
+            onValueChange={(v) => {
+              setStatusFilter(v === "all" ? "" : v);
               setPage(1);
             }}
-            className="w-40"
           >
-            <option value="">Wszystkie</option>
-            <option value="pending">Oczekujace</option>
-            <option value="processing">W trakcie</option>
-            <option value="completed">Ukonczone</option>
-            <option value="failed">Bledy</option>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Filtruj" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Wszystkie</SelectItem>
+              <SelectItem value="pending">Oczekujace</SelectItem>
+              <SelectItem value="processing">W trakcie</SelectItem>
+              <SelectItem value="completed">Ukonczone</SelectItem>
+              <SelectItem value="failed">Bledy</SelectItem>
+            </SelectContent>
           </Select>
           <Button variant="ghost" size="icon" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4" />
