@@ -4,6 +4,7 @@ from app.api.v1.endpoints import (
     agents,
     alerts,
     analytics,
+    assistant,
     auth,
     campaigns,
     companies,
@@ -31,6 +32,9 @@ api_router.include_router(auth.router)
 api_router.include_router(users.router)
 api_router.include_router(companies.router)
 api_router.include_router(tasks.router)
+
+# Assistant (Command Center)
+api_router.include_router(assistant.router)
 
 # Marketing Agents
 api_router.include_router(agents.router)

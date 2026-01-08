@@ -1,5 +1,8 @@
 # Plan Rozwoju Agentów AI - Agora
 
+> **Ostatnia aktualizacja:** Styczeń 2026
+> **Status ogólny:** Faza 1 ~100%, Faza 2 ~30%, Faza 3 ~85%, Faza 4 ~50%
+
 ## Wizja Strategiczna
 
 **Cel:** Przekształcenie agentów z "generatorów tekstu" w **autonomicznych asystentów biznesowych**, którzy wykonują zadania end-to-end bez interwencji użytkownika.
@@ -8,578 +11,349 @@
 
 ---
 
-## Faza 1: Fundamenty (MVP+)
+## Faza 1: Fundamenty (MVP+) - ~80% DONE
 
 ### 1.1 System Narzędzi dla Agentów
-
-Obecnie agenci nie mają żadnych tools - mogą tylko "myśleć". Trzeba dodać:
 
 ```
 backend/app/services/agents/tools/
 ├── __init__.py
-├── web_search.py      # Tavily API - wyszukiwanie w internecie
-├── calculator.py      # Obliczenia finansowe
-├── pdf_generator.py   # Generowanie PDF
-├── image_generator.py # DALL-E integration
-└── validators.py      # Walidacja NIP, IBAN, email
+├── web_search.py      ✅ Tavily API - wyszukiwanie w internecie
+├── calculator.py      ✅ Obliczenia finansowe (VAT, marże, cashflow)
+├── pdf_generator.py   ✅ Generowanie PDF (WeasyPrint)
+├── image_generator.py ✅ Together.ai FLUX integration
+└── validators.py      ✅ Walidacja NIP, IBAN, REGON, PESEL, email, telefon
 ```
 
-**Implementacja:**
+**Status implementacji:**
 
-| Narzędzie | Technologia | Użycie |
-|-----------|-------------|--------|
-| **Web Search** | **Tavily API** | Trendy, konkurencja, hashtagi, research |
-| Calculator | Python eval (sandboxed) | VAT, marże, cashflow |
-| PDF Generator | WeasyPrint / ReportLab | Faktury, raporty |
-| Image Generator | OpenAI DALL-E 3 | Grafiki do postów |
-| Validators | Lokalne funkcje | NIP, REGON, IBAN |
+| Narzędzie | Technologia | Status | Uwagi |
+|-----------|-------------|--------|-------|
+| **Web Search** | **Tavily API** | ✅ DONE | TavilySearchTool, TavilyTrendsTool, TavilyCompetitorTool |
+| Calculator | Python Decimal | ✅ DONE | VAT, marże, narzut, cashflow, procenty |
+| PDF Generator | WeasyPrint | ✅ DONE | Faktury i raporty |
+| Image Generator | Together.ai FLUX | ✅ DONE | Zastąpiło DALL-E (tańsze) |
+| Validators | Python regex | ✅ DONE | NIP, REGON, IBAN, PESEL, email, telefon |
 
-#### Tavily - Główne Narzędzie Web Search
+#### Tavily - ✅ ZAIMPLEMENTOWANE
 
-**Dlaczego Tavily:**
-- Zoptymalizowany dla AI/LLM - zwraca czyste, strukturyzowane dane
-- Szybki (średnio <1s response time)
-- Search + Extract w jednym API call
-- Wbudowane filtrowanie i ranking relevance
-- Competitive pricing dla SaaS
+Pełna integracja z 3 narzędziami:
+- `TavilySearchTool` - ogólne wyszukiwanie
+- `TavilyTrendsTool` - trendy social media
+- `TavilyCompetitorTool` - analiza konkurencji
 
-**Integracja Tavily z CrewAI:**
+Lokalizacja: `backend/app/services/agents/tools/web_search.py`
+
+### 1.2 Feedback Loop - ⏳ CZĘŚCIOWO
 
 ```python
-# backend/app/services/agents/tools/web_search.py
-from crewai_tools import TavilySearchTool
-from langchain_community.tools.tavily_search import TavilySearchResults
-
-class AgoraTavilyTool:
-    """Wrapper dla Tavily z konfiguracją Agora"""
-
-    def __init__(self):
-        self.search = TavilySearchResults(
-            max_results=5,
-            search_depth="advanced",  # lub "basic" dla szybszych query
-            include_answer=True,
-            include_raw_content=False,
-            include_images=True,
-        )
-
-    def search_trends(self, query: str, topic: str = "general") -> dict:
-        """Wyszukiwanie trendów dla marketingu"""
-        return self.search.invoke(f"{query} trends 2025 {topic}")
-
-    def search_competitors(self, company: str, industry: str) -> dict:
-        """Analiza konkurencji"""
-        return self.search.invoke(f"{company} competitors {industry} analysis")
-
-    def search_hashtags(self, topic: str, platform: str = "instagram") -> dict:
-        """Trending hashtagi"""
-        return self.search.invoke(f"trending {platform} hashtags {topic} 2025")
-
-    def search_market_data(self, query: str) -> dict:
-        """Dane rynkowe dla analiz finansowych"""
-        return self.search.invoke(f"{query} market data statistics Poland")
+# ✅ Zaimplementowane: Zapis ratingu w task output
+# ❌ Brakuje: Endpoint /api/v1/tasks/{task_id}/feedback
+# ❌ Brakuje: Wykorzystanie feedbacku do fine-tuningu
 ```
 
-**Użycie w agentach:**
+### 1.3 Kontekst Firmowy (Company Knowledge Base) - ✅ DONE
+
+Pełna implementacja z ~70 polami w modelu `CompanyKnowledge`:
 
 ```python
-# backend/app/services/agents/marketing/instagram.py
-from crewai import Agent, Task, Crew
-from app.services.agents.tools.web_search import AgoraTavilyTool
-
-tavily_tool = AgoraTavilyTool()
-
-instagram_specialist = Agent(
-    role="Instagram Specialist",
-    goal="Twórz angażujące posty z aktualnymi trendami",
-    tools=[tavily_tool.search],  # Agent ma dostęp do web search
-    # ...
-)
-
-research_task = Task(
-    description="""
-    1. Wyszukaj aktualne trendy dla: {topic}
-    2. Znajdź trending hashtagi na Instagramie
-    3. Sprawdź co robi konkurencja
-    4. Na podstawie researchu stwórz post
-    """,
-    agent=instagram_specialist,
-)
-```
-
-### 1.2 Feedback Loop
-
-Dodać system oceny outputów:
-
-```python
-# backend/app/schemas/feedback.py
-class TaskFeedback(BaseModel):
-    task_id: str
-    rating: int = Field(ge=1, le=5)
-    used: bool                    # Czy użytkownik użył outputu
-    edited: bool                  # Czy musiał edytować
-    edit_percentage: int | None   # Jak dużo zmienił (0-100)
-    comments: str | None
-
-# Nowy endpoint
-POST /api/v1/tasks/{task_id}/feedback
-```
-
-**Korzyści:**
-- Dane do fine-tuningu
-- Metryki jakości per agent
-- Identyfikacja słabych punktów
-
-### 1.3 Kontekst Firmowy (Company Knowledge Base)
-
-Rozszerzyć model Company o:
-
-```python
+# backend/app/models/company.py
 class CompanyKnowledge(BaseModel):
-    products: list[Product]           # Katalog produktów
-    services: list[Service]           # Lista usług
-    competitors: list[str]            # Konkurenci
-    unique_selling_points: list[str]  # USP
-    past_campaigns: list[Campaign]    # Historia kampanii
-    brand_guidelines: str             # Wytyczne marki
-    tone_examples: list[str]          # Przykłady tonu
+    brand_identity: BrandIdentity       # ✅ osobowość, wartości, USP
+    target_audience: TargetAudience     # ✅ demografia, bolączki, cele
+    communication_style: CommunicationStyle  # ✅ ton, emoji, słowa
+    content_preferences: ContentPreferences  # ✅ hashtagi, formaty
+    products: list[Product]             # ✅ produkty z cenami
+    services: list[Service]             # ✅ usługi
+    competitors: list[Competitor]       # ✅ konkurencja
 ```
 
-**Efekt:** Agenci znają firmę, nie tylko brief.
+**NOWE:** Brand Context Builder (`backend/app/services/agents/brand_context.py`)
+- Konwertuje CompanyKnowledge na strukturyzowany prompt
+- Agent-specific contexts (Instagram vs Copywriter vs Campaign)
 
-### 1.4 PDF Generation
+### 1.4 PDF Generation - ✅ DONE
 
-```python
-# backend/app/services/agents/tools/pdf_generator.py
-from weasyprint import HTML, CSS
+Lokalizacja: `backend/app/services/agents/tools/pdf_generator.py`
 
-class PDFGenerator:
-    async def generate_invoice_pdf(self, invoice_data: dict) -> bytes:
-        """Generuje profesjonalną fakturę PDF"""
-        html = self.render_invoice_template(invoice_data)
-        return HTML(string=html).write_pdf()
+Funkcje:
+- `generate_invoice_pdf()` - profesjonalne faktury
+- `generate_report_pdf()` - raporty finansowe
+- Templates z logo firmy i stylowaniem
 
-    async def generate_report_pdf(self, report_data: dict) -> bytes:
-        """Generuje raport cashflow PDF"""
-        html = self.render_report_template(report_data)
-        return HTML(string=html).write_pdf()
-```
+### 1.5 Image Generation - ✅ DONE (zmieniona technologia)
 
-### 1.5 Image Generation
+Lokalizacja: `backend/app/services/agents/tools/image_generator.py`
 
-```python
-# backend/app/services/agents/tools/image_generator.py
-from openai import OpenAI
-
-class ImageGenerator:
-    def __init__(self):
-        self.client = OpenAI()
-
-    async def generate_post_image(
-        self,
-        prompt: str,
-        style: str = "modern",
-        size: str = "1024x1024"
-    ) -> str:
-        """Generuje grafikę do posta, zwraca URL"""
-        response = await self.client.images.generate(
-            model="dall-e-3",
-            prompt=f"{prompt}. Style: {style}, professional, social media ready",
-            size=size,
-            quality="standard",
-            n=1,
-        )
-        return response.data[0].url
-```
+**Zmiana:** Zamiast DALL-E używamy **Together.ai FLUX**:
+- `black-forest-labs/FLUX.1-schnell` - szybkie generowanie
+- Tańsze niż DALL-E
+- Obsługa różnych platform (Instagram, Facebook, LinkedIn)
 
 ---
 
-## Faza 2: Integracje Zewnętrzne
+## Faza 2: Integracje Zewnętrzne - ~30% DONE
 
 ### 2.1 Marketing - Social Media
-
-**Instagram/Facebook Integration:**
 
 ```
 backend/app/services/integrations/
 ├── social/
-│   ├── meta.py         # Meta Graph API (Instagram + Facebook)
-│   ├── linkedin.py     # LinkedIn API
-│   ├── scheduler.py    # Harmonogram publikacji
-│   └── analytics.py    # Pobieranie statystyk
+│   ├── meta.py         ✅ Meta Graph API (Instagram + Facebook)
+│   ├── linkedin.py     ❌ DO ZROBIENIA
+│   ├── scheduler.py    ✅ Harmonogram publikacji (w meta.py)
+│   └── analytics.py    ⏳ CZĘŚCIOWO (basic insights)
 ```
 
-| Funkcja | Opis |
-|---------|------|
-| `connect_account()` | OAuth2 flow do połączenia konta |
-| `publish_post()` | Publikacja posta |
-| `schedule_post()` | Zaplanowanie publikacji |
-| `get_analytics()` | Pobranie statystyk postów |
-| `get_audience_insights()` | Dane o odbiorcach |
+**Meta Integration - ✅ ZAIMPLEMENTOWANE:**
 
-**Nowy flow Instagram Specialist:**
-```
-Brief → [Tavily Research] → Generowanie → Review → Podgląd → Approval → Publikacja
-```
+Lokalizacja: `backend/app/services/integrations/meta.py`
 
-### 2.2 Marketing - Analytics Integration (z Tavily)
+| Funkcja | Status |
+|---------|--------|
+| `connect_account()` - OAuth2 | ✅ |
+| `publish_post()` - Publikacja | ✅ |
+| `schedule_post()` - Planowanie | ✅ |
+| `get_media_insights()` - Statystyki | ✅ |
+| `get_account_insights()` - Konto | ✅ |
 
-```python
-class MarketingResearch:
-    def __init__(self):
-        self.tavily = AgoraTavilyTool()
+### 2.2 Finanse - Integracje Księgowe - ❌ TODO
 
-    async def get_industry_trends(self, industry: str) -> dict:
-        """Pobiera trendy branżowe z internetu"""
-        return self.tavily.search_trends(industry)
+**Priorytetowe integracje do zrobienia:**
 
-    async def analyze_competitor_content(self, competitor: str) -> dict:
-        """Analizuje content konkurencji"""
-        return self.tavily.search_competitors(competitor)
+| System | Popularność w PL | Status |
+|--------|------------------|--------|
+| Fakturownia | ★★★★★ | ❌ TODO |
+| iFirma | ★★★★☆ | ❌ TODO |
+| wFirma | ★★★☆☆ | ❌ TODO |
 
-    async def get_viral_content_patterns(self, niche: str) -> dict:
-        """Znajduje wzorce viralowego contentu"""
-        return self.tavily.search(f"viral {niche} content patterns what works")
-```
+### 2.3 Finanse - Integracje Bankowe - ❌ TODO
 
-### 2.3 Finanse - Integracje Księgowe
-
-**Priorytetowe integracje:**
-
-| System | Popularność w PL | API |
-|--------|------------------|-----|
-| Fakturownia | ★★★★★ | REST API |
-| iFirma | ★★★★☆ | REST API |
-| wFirma | ★★★☆☆ | REST API |
-| InFakt | ★★★☆☆ | REST API |
-
-```
-backend/app/services/integrations/
-├── accounting/
-│   ├── base.py           # Abstract interface
-│   ├── fakturownia.py    # Fakturownia API
-│   ├── ifirma.py         # iFirma API
-│   └── wfirma.py         # wFirma API
-```
-
-**Nowy flow Invoice Specialist:**
-```
-Dane → Generowanie → Walidacja → Podgląd PDF → Approval → Wyślij do systemu księgowego
-```
-
-### 2.4 Finanse - Integracje Bankowe
-
-**Open Banking (PSD2):**
-
-| Provider | Opis |
-|----------|------|
-| Kontomatik | Polski agregator bankowy |
-| Nordigen | Europejski Open Banking |
-| Salt Edge | Globalny provider |
-
-```python
-class BankingIntegration:
-    async def connect_bank(self, bank_id: str) -> AuthUrl
-    async def get_transactions(self,
-        account_id: str,
-        from_date: date,
-        to_date: date
-    ) -> list[Transaction]
-    async def categorize_transactions(self, transactions: list) -> CategorizedData
-```
-
-**Nowy flow Cashflow Analyst:**
-```
-Auto-import transakcji → Kategoryzacja AI → Analiza → Rekomendacje → Alerty
-```
-
-### 2.5 Cashflow Analyst z Tavily
-
-```python
-class CashflowResearchTools:
-    def __init__(self):
-        self.tavily = AgoraTavilyTool()
-
-    async def get_industry_benchmarks(self, industry: str) -> dict:
-        """Porównanie z benchmarkami branżowymi"""
-        return self.tavily.search(f"{industry} financial benchmarks Poland SME")
-
-    async def get_economic_outlook(self) -> dict:
-        """Prognozy ekonomiczne"""
-        return self.tavily.search("Poland economic outlook SME forecast 2025")
-
-    async def get_cost_optimization_tips(self, expense_category: str) -> dict:
-        """Wskazówki optymalizacji kosztów"""
-        return self.tavily.search(f"reduce {expense_category} costs small business tips")
-```
+Open Banking (PSD2) - do zrobienia w przyszłości.
 
 ---
 
-## Faza 3: Nowi Agenci
+## Faza 3: Nowi Agenci - ~85% DONE
 
-### 3.1 HR Department
+### 3.1 HR Department - ✅ DONE
 
 ```
 backend/app/services/agents/hr/
-├── __init__.py
-├── recruiter.py      # Tworzenie ogłoszeń o pracę
-├── interviewer.py    # Przygotowanie pytań rekrutacyjnych
-└── onboarding.py     # Materiały onboardingowe
+├── __init__.py         ✅
+├── recruiter.py        ✅ Tworzenie ogłoszeń o pracę
+├── interviewer.py      ✅ Przygotowanie pytań rekrutacyjnych
+└── onboarding.py       ✅ Materiały onboardingowe
 ```
 
-**HR Recruiter z Tavily:**
-- Research wynagrodzeń rynkowych
-- Analiza ogłoszeń konkurencji
-- Trendy rekrutacyjne w branży
-
-### 3.2 Sales Department
+### 3.2 Sales Department - ✅ DONE
 
 ```
 backend/app/services/agents/sales/
-├── __init__.py
-├── proposal.py       # Generowanie ofert
-├── crm_assistant.py  # Asystent CRM
-└── lead_scorer.py    # Scoring leadów
+├── __init__.py         ✅
+├── proposal.py         ✅ Generowanie ofert
+└── lead_scorer.py      ✅ Scoring leadów
 ```
 
-**Sales Proposal z Tavily:**
-- Research klienta przed ofertą
-- Analiza branży klienta
-- Znajdowanie case studies
-
-### 3.3 Legal Department
+### 3.3 Legal Department - ✅ DONE
 
 ```
 backend/app/services/agents/legal/
-├── __init__.py
-├── contract_reviewer.py  # Analiza umów
-├── gdpr_assistant.py     # Compliance RODO
-└── terms_generator.py    # Regulaminy, polityki
+├── __init__.py         ✅
+├── contract_reviewer.py  ✅ Analiza umów
+├── gdpr_assistant.py     ✅ Compliance RODO
+└── terms_generator.py    ✅ Regulaminy, polityki
 ```
 
-### 3.4 Customer Support Department
+### 3.4 Customer Support Department - ✅ DONE
 
 ```
 backend/app/services/agents/support/
-├── __init__.py
-├── ticket_handler.py    # Obsługa zgłoszeń
-├── faq_generator.py     # Tworzenie FAQ
-└── sentiment_analyst.py # Analiza sentymentu
+├── __init__.py         ✅
+├── ticket_handler.py   ✅ Obsługa zgłoszeń
+├── faq_generator.py    ✅ Tworzenie FAQ
+└── sentiment_analyst.py ✅ Analiza sentymentu
 ```
 
 ---
 
-## Faza 4: Zaawansowane Możliwości
+## Faza 4: Zaawansowane Możliwości - ~50% DONE
 
-### 4.1 Multi-Agent Collaboration
+### 4.1 Multi-Agent Collaboration - ✅ DONE
 
-Agenci współpracujący nad złożonymi zadaniami:
+Lokalizacja: `backend/app/services/agents/campaigns.py`
 
-```python
-class MarketingCampaignCrew:
-    agents = [
-        "Market Researcher",      # Tavily research
-        "Copywriter",             # Teksty
-        "Instagram Specialist",   # Social media
-        "Email Marketer",         # Email sequence
-        "Analytics Expert"        # Pomiar wyników
-    ]
+Zaimplementowane kampanie:
+- `SOCIAL_MEDIA` - Instagram + Image Generator
+- `FULL_MARKETING` - Copywriter + Instagram + Image
+- `PRODUCT_LAUNCH` - Pełny pakiet dla nowego produktu
+- `PROMO_CAMPAIGN` - Materiały promocyjne
 
-    process = "hierarchical"  # Manager koordynuje
+### 4.2 Proactive Agents - ⏳ CZĘŚCIOWO
+
+```
+backend/app/services/agents/monitoring/
+├── __init__.py         ✅
+├── alerts.py           ✅ System alertów
+├── trends.py           ✅ Monitoring trendów (Tavily)
+└── scheduler.py        ✅ Harmonogram zadań
 ```
 
-### 4.2 Proactive Agents
+**Do zrobienia:**
+- ❌ Auto-triggering przy niskim stanie konta
+- ❌ Auto-generowanie content calendar
 
-Agenci działający bez promptu użytkownika:
-
-| Agent | Trigger | Akcja |
-|-------|---------|-------|
-| Cashflow Monitor | Niski stan konta | Alert + rekomendacje |
-| Invoice Reminder | Niezapłacona faktura | Przypomnienie do klienta |
-| Content Calendar | Brak zaplanowanych postów | Sugestie contentu |
-| Trend Monitor | Nowy trend w branży (Tavily) | Alert + propozycja reakcji |
-| Review Monitor | Nowa opinia Google | Analiza + sugerowana odpowiedź |
-
-### 4.3 Voice Interface
+### 4.3 Voice Interface - ✅ DONE
 
 ```
 backend/app/services/voice/
-├── speech_to_text.py   # Whisper API
-├── text_to_speech.py   # ElevenLabs
-└── voice_agent.py      # Konwersacyjny agent
+├── __init__.py         ✅
+├── speech_to_text.py   ✅ OpenAI Whisper
+├── text_to_speech.py   ✅ OpenAI TTS
+└── voice_agent.py      ✅ Konwersacyjny agent
 ```
 
-### 4.4 Mobile App + Notifications
+### 4.4 Autonomous Goals - ⏳ CZĘŚCIOWO
 
-- Push notifications o statusie zadań
-- Quick actions (approve/reject z powiadomienia)
-- Widget z podsumowaniem dnia
+```
+backend/app/services/agents/goals/
+├── __init__.py         ✅
+├── planner.py          ✅ Planowanie celów
+├── executor.py         ✅ Wykonywanie kroków
+└── tracker.py          ✅ Śledzenie postępów
+```
+
+### 4.5 Mobile App + Notifications - ❌ TODO
+
+Nie rozpoczęte.
 
 ---
 
-## Faza 5: AI Advancement
+## Faza 5: AI Advancement - ~10% DONE
 
-### 5.1 Fine-tuned Models
+### 5.1 Fine-tuned Models - ❌ TODO
 
-| Model | Trening na | Cel |
-|-------|------------|-----|
-| Agora-Copy-PL | Polskie teksty marketingowe | Lepszy copywriting |
-| Agora-Finance-PL | Polskie dokumenty finansowe | Dokładniejsze faktury |
-| Agora-Legal-PL | Polskie umowy | Analiza kontraktów |
+Nie rozpoczęte.
 
-### 5.2 RAG Enhancement
+### 5.2 RAG Enhancement - ⏳ CZĘŚCIOWO
 
 ```python
-class EnhancedMemory:
-    # Obecne
-    qdrant: VectorStore      # Pamięć semantyczna
+# ✅ Zaimplementowane:
+qdrant: VectorStore      # Pamięć semantyczna (memory_service)
+tavily: TavilySearch     # Real-time web knowledge
 
-    # Nowe
-    graph_db: Neo4j          # Relacje między encjami
-    time_series: InfluxDB    # Dane czasowe (analytics)
-    tavily: TavilySearch     # Real-time web knowledge
-
-    async def get_context(self, query: str) -> Context:
-        semantic = await self.qdrant.search(query)
-        relations = await self.graph_db.get_related(semantic)
-        history = await self.time_series.get_trends(query)
-        web_context = await self.tavily.search(query)  # Fresh data
-        return Context(semantic, relations, history, web_context)
+# ❌ Do zrobienia:
+graph_db: Neo4j          # Relacje między encjami
+time_series: InfluxDB    # Dane czasowe
 ```
 
-### 5.3 Autonomous Goal Achievement
+Lokalizacja: `backend/app/services/agents/memory.py`
 
-Agent dostaje cel, sam planuje i wykonuje:
+### 5.3 Autonomous Goal Achievement - ⏳ CZĘŚCIOWO
 
-```python
-# Input
-goal = "Zwiększ engagement na Instagramie o 20% w ciągu miesiąca"
-
-# Agent autonomicznie:
-# 1. [Tavily] Analizuje trendy i best practices
-# 2. [Tavily] Bada konkurencję
-# 3. Tworzy strategię contentową
-# 4. Generuje i publikuje posty
-# 5. Monitoruje wyniki
-# 6. [Tavily] Szuka nowych trendów
-# 7. Dostosowuje strategię
-# 8. Raportuje postępy
-```
+Podstawowa struktura istnieje w `goals/`, ale brak pełnej autonomii.
 
 ---
 
-## Konfiguracja Tavily
-
-### Zmienne środowiskowe
-
-```env
-# .env
-TAVILY_API_KEY=tvly-xxxxxxxxxxxxx
-TAVILY_SEARCH_DEPTH=advanced  # basic | advanced
-TAVILY_MAX_RESULTS=5
-```
-
-### Config
-
-```python
-# backend/app/core/config.py
-class Settings(BaseSettings):
-    # ... existing settings ...
-
-    # Tavily
-    tavily_api_key: str = Field(..., env="TAVILY_API_KEY")
-    tavily_search_depth: str = Field("advanced", env="TAVILY_SEARCH_DEPTH")
-    tavily_max_results: int = Field(5, env="TAVILY_MAX_RESULTS")
-```
-
-### Pricing Tavily (orientacyjnie)
-
-| Plan | Requests/month | Cena |
-|------|----------------|------|
-| Free | 1,000 | $0 |
-| Basic | 10,000 | $30/mo |
-| Pro | 100,000 | $200/mo |
-| Enterprise | Unlimited | Custom |
-
-**Rekomendacja:** Start z Basic, przejście na Pro przy >50 aktywnych firmach.
-
----
-
-## Roadmap Wizualny
+## Roadmap Wizualny - ZAKTUALIZOWANY
 
 ```
 Q1 2025                    Q2 2025                    Q3 2025                    Q4 2025
 ┌─────────────────────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┐
-│      FAZA 1             │      FAZA 2             │      FAZA 3             │      FAZA 4             │
+│      FAZA 1 ✅          │      FAZA 2             │      FAZA 3             │      FAZA 4             │
 │                         │                         │                         │                         │
-│ ☐ Tavily Integration    │ ☐ Social Media API      │ ☐ HR Department         │ ☐ Multi-Agent Crews     │
-│ ☐ Feedback loop         │ ☐ Integracje księgowe   │ ☐ Sales Department      │ ☐ Proactive Agents      │
-│ ☐ Company Knowledge     │ ☐ Open Banking          │ ☐ Legal Department      │ ☐ Voice Interface       │
-│ ☐ PDF Generation        │ ☐ Analytics Dashboard   │ ☐ Support Department    │ ☐ Mobile App            │
-│ ☐ Image Generation      │ ☐ Scheduler             │ ☐ Agent Marketplace     │ ☐ Autonomous Goals      │
+│ ✅ Tavily Integration   │ ✅ Social Media API     │ ✅ HR Department        │ ✅ Multi-Agent Crews    │
+│ ⏳ Feedback loop        │ ❌ Integracje księgowe  │ ✅ Sales Department     │ ⏳ Proactive Agents     │
+│ ✅ Company Knowledge    │ ❌ Open Banking         │ ✅ Legal Department     │ ✅ Voice Interface      │
+│ ✅ PDF Generation       │ ⏳ Analytics Dashboard  │ ✅ Support Department   │ ❌ Mobile App           │
+│ ✅ Image Generation     │ ✅ Scheduler            │ ❌ Agent Marketplace    │ ⏳ Autonomous Goals     │
+│ ✅ Calculator           │ ❌ LinkedIn API         │                         │                         │
+│ ✅ Validators           │                         │                         │                         │
 │                         │                         │                         │                         │
 └─────────────────────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┘
+
+Legenda: ✅ Zrobione | ⏳ Częściowo | ❌ Do zrobienia
 ```
 
 ---
 
-## Priorytety per Agent (Quick Wins)
+## Priorytety DO ZROBIENIA (Quick Wins)
 
-### Instagram Specialist - Top 3 usprawnienia:
-1. **Tavily Hashtag Research** - trending hashtagi z real-time search
-2. **Image Generation (DALL-E)** - pełny post, nie tylko tekst
-3. **Meta Business Suite Integration** - publikacja i analytics
+### ~~Najwyższy priorytet (Faza 1 - dokończenie):~~ ✅ UKOŃCZONE
 
-### Copywriter - Top 3 usprawnienia:
-1. **Tavily SEO Research** - keyword research przed pisaniem
-2. **Company Products KB** - zna produkty firmy
-3. **A/B Testing Framework** - porównywanie wariantów
+1. ~~**Calculator Tool** - obliczenia finansowe (VAT, marże, cashflow)~~ ✅
+2. ~~**Validators Tool** - walidacja NIP, IBAN, REGON~~ ✅
 
-### Invoice Specialist - Top 3 usprawnienia:
+### Najwyższy priorytet (Faza 2):
+
 1. **Fakturownia Integration** - wystawianie prawdziwych faktur
-2. **Contractor Database** - autouzupełnianie danych
-3. **PDF Generation** - profesjonalny dokument
+2. **LinkedIn API** - publikacja na LinkedIn
 
-### Cashflow Analyst - Top 3 usprawnienia:
-1. **Bank Integration** - auto-import transakcji
-2. **Tavily Market Research** - benchmarki branżowe, prognozy
-3. **Alert System** - powiadomienia o anomaliach
+### Średni priorytet:
+
+3. **Feedback Endpoint** - `/api/v1/tasks/{task_id}/feedback`
+4. **Open Banking** - import transakcji bankowych
+
+### Niższy priorytet:
+
+5. **Mobile App** - push notifications
+6. **Agent Marketplace** - publiczny katalog agentów
+
+---
+
+## Dodatkowe narzędzia ZAIMPLEMENTOWANE (nie w oryginalnym roadmap)
+
+| Narzędzie | Lokalizacja | Opis |
+|-----------|-------------|------|
+| Google Calendar | `integrations/google_calendar.py` | Integracja kalendarza |
+| Brand Context Builder | `agents/brand_context.py` | Rich context dla agentów |
+| Memory Service | `agents/memory.py` | Pamięć agentów z Qdrant |
 
 ---
 
 ## KPIs do Monitorowania
 
-| Metryka | Cel Faza 1 | Cel Faza 2 | Cel Faza 4 |
-|---------|------------|------------|------------|
-| Czas na zadanie (user) | -30% | -60% | -90% |
-| Output acceptance rate | 60% | 75% | 90% |
-| Tasks per user/month | 10 | 30 | 100 |
-| End-to-end automation | 0% | 40% | 80% |
-| Tavily searches/task | 2-3 | 3-5 | 5-10 |
-| Churn rate | <10% | <7% | <5% |
-| NPS | 30 | 50 | 70 |
+| Metryka | Cel Faza 1 | Aktualny Status |
+|---------|------------|-----------------|
+| Tools implemented | 5/5 | 5/5 (100%) ✅ |
+| Departments | 4/4 | 4/4 (100%) ✅ |
+| Integrations | 4 | 2 (50%) |
+| Voice Interface | Yes | Yes (100%) ✅ |
+| Multi-Agent | Yes | Yes (100%) ✅ |
 
 ---
 
-## Szacowane Zasoby
+## Appendix: Architektura Agentów
 
-| Faza | Zakres | Zespół |
-|------|--------|--------|
-| Faza 1 | Fundamenty + Tavily | 1 backend + 1 frontend |
-| Faza 2 | Integracje | 2 backend + 1 frontend + 1 devops |
-| Faza 3 | Nowi agenci | 2 backend + 1 AI/ML + 1 frontend |
-| Faza 4 | Zaawansowane | 3 backend + 2 AI/ML + 2 frontend + 1 mobile |
-
----
-
-## Appendix: Tavily vs Alternatywy
-
-| Cecha | Tavily | SerpAPI | Google Custom Search |
-|-------|--------|---------|---------------------|
-| AI-optimized output | ✅ | ❌ | ❌ |
-| Speed | Fast | Medium | Medium |
-| Include answer | ✅ | ❌ | ❌ |
-| Pricing | $$ | $$$ | $ |
-| Rate limits | Generous | Strict | Very strict |
-| CrewAI integration | Native | Manual | Manual |
-
-**Wniosek:** Tavily to najlepszy wybór dla agentów AI - natywna integracja z LangChain/CrewAI i output zoptymalizowany pod LLM.
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         DEPARTMENTS                              │
+├──────────┬──────────┬──────────┬──────────┬──────────┬─────────┤
+│ Marketing│ Finance  │    HR    │  Sales   │  Legal   │ Support │
+├──────────┼──────────┼──────────┼──────────┼──────────┼─────────┤
+│Instagram │Invoice   │Recruiter │Proposal  │Contract  │Ticket   │
+│Copywriter│Cashflow  │Interview │LeadScore │GDPR      │FAQ      │
+│          │          │Onboard   │          │Terms     │Sentiment│
+└────┬─────┴────┬─────┴────┬─────┴────┬─────┴────┬─────┴────┬────┘
+     │          │          │          │          │          │
+     └──────────┴──────────┴──────────┴──────────┴──────────┘
+                              │
+                    ┌─────────┴─────────┐
+                    │   TOOLS ✅ 100%   │
+                    ├───────────────────┤
+                    │ ✅ Tavily Search  │
+                    │ ✅ PDF Generator  │
+                    │ ✅ Image Generator│
+                    │ ✅ Calculator     │
+                    │ ✅ Validators     │
+                    └─────────┬─────────┘
+                              │
+                    ┌─────────┴─────────┐
+                    │   INTEGRATIONS    │
+                    ├───────────────────┤
+                    │ ✅ Meta API       │
+                    │ ✅ Google Calendar│
+                    │ ❌ LinkedIn       │
+                    │ ❌ Fakturownia    │
+                    │ ❌ Open Banking   │
+                    └───────────────────┘
+```

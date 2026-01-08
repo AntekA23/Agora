@@ -1,230 +1,281 @@
 "use client";
 
+import * as React from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { useDashboardAnalytics } from "@/hooks/use-analytics";
+import { useTasks } from "@/hooks/use-tasks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CommandInput } from "@/components/command-input";
+import { QuickActions } from "@/components/quick-actions";
+import { FollowUpDialog } from "@/components/follow-up-dialog";
 import {
-  MessageSquare,
-  TrendingUp,
-  FileText,
   CheckCircle,
   Clock,
-  AlertCircle,
   Loader2,
-  BarChart3,
+  AlertCircle,
+  Sparkles,
 } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import type { InterpretResponse, QuickAction } from "@/types/assistant";
+import type { Task } from "@/types/task";
 
 const agentLabels: Record<string, string> = {
   instagram_specialist: "Instagram",
   copywriter: "Copywriter",
-  invoice_worker: "Faktury",
+  invoice_specialist: "Faktury",
   cashflow_analyst: "Cashflow",
+  hr_recruiter: "Rekrutacja",
+  campaign_service: "Kampania",
 };
 
-const departmentLabels: Record<string, string> = {
-  marketing: "Marketing",
-  finance: "Finanse",
+const statusConfig: Record<
+  string,
+  { icon: typeof Clock; color: string; label: string }
+> = {
+  pending: { icon: Clock, color: "text-yellow-500", label: "Oczekuje" },
+  processing: { icon: Loader2, color: "text-blue-500", label: "W trakcie" },
+  completed: { icon: CheckCircle, color: "text-green-500", label: "Gotowe" },
+  failed: { icon: AlertCircle, color: "text-red-500", label: "Blad" },
 };
 
-export default function DashboardPage() {
+export default function CommandCenterPage() {
   const { user } = useAuth();
-  const { data: analytics, isLoading } = useDashboardAnalytics();
+  const router = useRouter();
+  const { data: tasksData, isLoading: tasksLoading } = useTasks({
+    per_page: 5,
+  });
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [currentResult, setCurrentResult] =
+    React.useState<InterpretResponse | null>(null);
+  const [originalMessage, setOriginalMessage] = React.useState("");
 
-  const stats = [
-    {
-      name: "Zadania dzisiaj",
-      value: analytics?.summary.tasks_today || 0,
-      icon: MessageSquare,
-      color: "text-blue-500",
+  const handleInterpretResult = React.useCallback(
+    (result: InterpretResponse, message: string) => {
+      setCurrentResult(result);
+      setOriginalMessage(message);
+
+      if (result.can_auto_execute) {
+        redirectToAgent(result);
+      } else if (result.follow_up_questions.length > 0) {
+        setDialogOpen(true);
+      }
     },
-    {
-      name: "Ten tydzien",
-      value: analytics?.summary.tasks_week || 0,
-      icon: TrendingUp,
-      color: "text-green-500",
-    },
-    {
-      name: "Wszystkie",
-      value: analytics?.summary.total_tasks || 0,
-      icon: FileText,
-      color: "text-purple-500",
-    },
-    {
-      name: "Skutecznosc",
-      value: `${analytics?.summary.completion_rate || 0}%`,
-      icon: CheckCircle,
-      color: "text-emerald-500",
-    },
-  ];
-
-  const statusIcons: Record<string, typeof Clock> = {
-    pending: Clock,
-    processing: Loader2,
-    completed: CheckCircle,
-    failed: AlertCircle,
-  };
-
-  const statusColors: Record<string, string> = {
-    pending: "text-yellow-500",
-    processing: "text-blue-500",
-    completed: "text-green-500",
-    failed: "text-red-500",
-  };
-
-  const maxActivity = Math.max(
-    ...(analytics?.daily_activity?.map((d) => d.count) || [1])
+    []
   );
 
+  const handleQuickAction = React.useCallback(
+    (result: InterpretResponse, action: QuickAction) => {
+      setCurrentResult(result);
+      setOriginalMessage(action.label);
+
+      if (result.can_auto_execute) {
+        redirectToAgent(result);
+      } else if (result.follow_up_questions.length > 0) {
+        setDialogOpen(true);
+      }
+    },
+    []
+  );
+
+  const handleFollowUpSubmit = React.useCallback(
+    (answers: Record<string, string>) => {
+      if (!currentResult) return;
+
+      const params = { ...currentResult.extracted_params, ...answers };
+      redirectToAgentWithParams(currentResult.intent, params);
+      setDialogOpen(false);
+    },
+    [currentResult]
+  );
+
+  const redirectToAgent = (result: InterpretResponse) => {
+    const intentRoutes: Record<string, string> = {
+      social_media_post: "/marketing",
+      marketing_copy: "/marketing",
+      campaign: "/campaigns",
+      invoice: "/finance",
+      cashflow_analysis: "/finance",
+      job_posting: "/hr",
+      interview_questions: "/hr",
+      onboarding: "/hr",
+      sales_proposal: "/sales",
+      lead_scoring: "/sales",
+      followup_email: "/sales",
+      contract_review: "/legal",
+      privacy_policy: "/legal",
+      terms_of_service: "/legal",
+      gdpr_check: "/legal",
+      ticket_response: "/support",
+      faq: "/support",
+      sentiment_analysis: "/support",
+    };
+
+    const route = intentRoutes[result.intent] || "/marketing";
+    const params = new URLSearchParams();
+
+    if (result.extracted_params.topic) {
+      params.set("brief", String(result.extracted_params.topic));
+    }
+    if (result.quick_action_id) {
+      params.set("action", result.quick_action_id);
+    }
+
+    const queryString = params.toString();
+    router.push(route + (queryString ? "?" + queryString : ""));
+  };
+
+  const redirectToAgentWithParams = (
+    intent: string,
+    params: Record<string, unknown>
+  ) => {
+    const intentRoutes: Record<string, string> = {
+      social_media_post: "/marketing",
+      marketing_copy: "/marketing",
+      campaign: "/campaigns",
+      invoice: "/finance",
+      cashflow_analysis: "/finance",
+      job_posting: "/hr",
+      sales_proposal: "/sales",
+      contract_review: "/legal",
+      ticket_response: "/support",
+    };
+
+    const route = intentRoutes[intent] || "/marketing";
+    const searchParams = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        searchParams.set(key, String(value));
+      }
+    });
+
+    const queryString = searchParams.toString();
+    router.push(route + (queryString ? "?" + queryString : ""));
+  };
+
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "przed chwila";
+    if (diffMins < 60) return diffMins + " min temu";
+    if (diffHours < 24) return diffHours + "h temu";
+    if (diffDays === 1) return "wczoraj";
+    return diffDays + " dni temu";
+  };
+
+  const recentTasks = tasksData?.tasks ?? [];
+  const firstName = user?.name?.split(" ")[0] || "User";
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">
-            Witaj, {user?.name?.split(" ")[0] || "User"}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Oto podsumowanie aktywnosci Twoich agentow AI
-          </p>
+    <div className="space-y-8">
+      <div className="text-center space-y-2">
+        <h1 className="text-3xl font-bold">Witaj, {firstName}</h1>
+        <p className="text-muted-foreground">Co chcesz dzis zrobic?</p>
+      </div>
+
+      <div className="max-w-2xl mx-auto">
+        <Card className="border-2">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <span className="font-medium">Opisz czego potrzebujesz</span>
+            </div>
+            <CommandInput
+              onInterpret={handleInterpretResult}
+              placeholder='np. "Post na Instagram o nowej promocji -20%"'
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <div className="h-px flex-1 bg-border" />
+          <span>lub wybierz szybka akcje</span>
+          <div className="h-px flex-1 bg-border" />
         </div>
-        <Link href="/marketing">
-          <Button>
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Nowe zadanie
-          </Button>
-        </Link>
+        <div className="flex justify-center">
+          <QuickActions onSelect={handleQuickAction} />
+        </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.name}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.name}
-              </CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Activity Chart */}
+      {recentTasks.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Aktywnosc (7 dni)
-            </CardTitle>
+            <CardTitle className="text-lg">Ostatnie zadania</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-end justify-between h-32 gap-2">
-              {analytics?.daily_activity?.map((day) => {
-                const height = maxActivity > 0 ? (day.count / maxActivity) * 100 : 0;
-                const date = new Date(day.date);
-                const dayName = date.toLocaleDateString("pl-PL", { weekday: "short" });
-                return (
-                  <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
+            <div className="space-y-3">
+              {tasksLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                recentTasks.map((task: Task) => {
+                  const config =
+                    statusConfig[task.status] || statusConfig.pending;
+                  const StatusIcon = config.icon;
+                  const agentLabel = agentLabels[task.agent] || task.agent;
+
+                  const title =
+                    (task.input?.brief as string) ||
+                    (task.input?.description as string) ||
+                    task.type;
+
+                  return (
                     <div
-                      className="w-full bg-primary rounded-t transition-all"
-                      style={{ height: `${Math.max(height, 4)}%` }}
-                      title={`${day.count} zadan`}
-                    />
-                    <span className="text-xs text-muted-foreground">{dayName}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Status Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Status zadan</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {Object.entries(analytics?.tasks_by_status || {}).map(([status, count]) => {
-                const Icon = statusIcons[status] || MessageSquare;
-                const color = statusColors[status] || "text-muted-foreground";
-                const labels: Record<string, string> = {
-                  pending: "Oczekujace",
-                  processing: "W trakcie",
-                  completed: "Ukonczone",
-                  failed: "Nieudane",
-                };
-                return (
-                  <div key={status} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Icon className={`h-4 w-4 ${color}`} />
-                      <span className="text-sm">{labels[status] || status}</span>
+                      key={task.id}
+                      className="flex items-center justify-between py-2 border-b border-border last:border-0"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <StatusIcon
+                          className={
+                            "h-4 w-4 shrink-0 " +
+                            config.color +
+                            (task.status === "processing" ? " animate-spin" : "")
+                          }
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {agentLabel} • {formatRelativeTime(task.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge
+                        variant={
+                          task.status === "completed"
+                            ? "default"
+                            : task.status === "failed"
+                            ? "destructive"
+                            : "secondary"
+                        }
+                        className="shrink-0"
+                      >
+                        {config.label}
+                      </Badge>
                     </div>
-                    <Badge variant="secondary">{count}</Badge>
-                  </div>
-                );
-              })}
-              {Object.keys(analytics?.tasks_by_status || {}).length === 0 && (
-                <p className="text-sm text-muted-foreground">Brak zadan</p>
+                  );
+                })
               )}
             </div>
           </CardContent>
         </Card>
+      )}
 
-        {/* By Department */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Dzialy</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {Object.entries(analytics?.tasks_by_department || {}).map(([dept, count]) => (
-                <div key={dept} className="flex items-center justify-between">
-                  <span className="text-sm">{departmentLabels[dept] || dept}</span>
-                  <Badge variant="outline">{count}</Badge>
-                </div>
-              ))}
-              {Object.keys(analytics?.tasks_by_department || {}).length === 0 && (
-                <p className="text-sm text-muted-foreground">Brak danych</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* By Agent */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Agenci</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {Object.entries(analytics?.tasks_by_agent || {}).map(([agent, count]) => (
-                <div key={agent} className="flex items-center justify-between">
-                  <span className="text-sm">{agentLabels[agent] || agent}</span>
-                  <Badge variant="outline">{count}</Badge>
-                </div>
-              ))}
-              {Object.keys(analytics?.tasks_by_agent || {}).length === 0 && (
-                <p className="text-sm text-muted-foreground">Brak danych</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <FollowUpDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        result={currentResult}
+        originalMessage={originalMessage}
+        onSubmit={handleFollowUpSubmit}
+      />
     </div>
   );
 }
