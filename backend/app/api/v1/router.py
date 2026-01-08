@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     auth,
     campaigns,
     companies,
+    conversations,
     dev,
     experiments,
     finance,
@@ -40,6 +41,9 @@ api_router.include_router(onboarding.router)
 
 # Assistant (Command Center)
 api_router.include_router(assistant.router)
+
+# Conversations (Chat Interface)
+api_router.include_router(conversations.router)
 
 # Templates (One-Click Templates)
 api_router.include_router(templates.router)
