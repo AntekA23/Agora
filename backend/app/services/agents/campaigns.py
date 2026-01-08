@@ -13,6 +13,7 @@ from app.services.agents.marketing.instagram import generate_instagram_post
 from app.services.agents.marketing.copywriter import generate_marketing_copy
 from app.services.agents.tools.image_generator import image_service
 from app.services.agents.memory import memory_service, MemoryType
+from app.services.agents.brand_context import build_brand_context
 
 
 class CampaignType:
@@ -34,6 +35,8 @@ class CampaignService:
         brand_voice: str = "profesjonalny",
         target_audience: str = "",
         include_image: bool = True,
+        knowledge: dict = None,
+        settings: dict = None,
     ) -> dict[str, Any]:
         """Create a complete social media campaign.
 
@@ -48,11 +51,23 @@ class CampaignService:
             brand_voice: Głos marki
             target_audience: Grupa docelowa
             include_image: Czy generować obraz
+            knowledge: CompanyKnowledge dict for brand context
+            settings: CompanySettings dict for brand context
 
         Returns:
             Dictionary with all campaign outputs
         """
         platforms = platforms or ["instagram"]
+
+        # Build brand context if knowledge provided
+        brand_context = ""
+        if knowledge:
+            brand_context = build_brand_context(
+                knowledge=knowledge,
+                settings=settings or {},
+                agent_type="campaign",
+            )
+
         results = {
             "campaign_type": CampaignType.SOCIAL_MEDIA,
             "brief": brief,
@@ -60,9 +75,10 @@ class CampaignService:
             "platforms": platforms,
             "outputs": {},
             "agents_used": [],
+            "used_brand_context": bool(brand_context),
         }
 
-        # Step 1: Generate post content
+        # Step 1: Generate post content with brand context
         try:
             post_result = await generate_instagram_post(
                 brief=brief,
@@ -71,6 +87,7 @@ class CampaignService:
                 include_hashtags=True,
                 post_type="post",
                 company_id=company_id,
+                brand_context=brand_context,
             )
             results["outputs"]["post"] = post_result
             results["agents_used"].append("instagram_specialist")
@@ -107,6 +124,8 @@ class CampaignService:
         target_audience: str = "",
         copy_types: list[str] = None,
         platforms: list[str] = None,
+        knowledge: dict = None,
+        settings: dict = None,
     ) -> dict[str, Any]:
         """Create a full marketing campaign package.
 
@@ -123,12 +142,29 @@ class CampaignService:
             target_audience: Grupa docelowa
             copy_types: Typy tekstów (ad, email, landing, slogan)
             platforms: Platformy social media
+            knowledge: CompanyKnowledge dict for brand context
+            settings: CompanySettings dict for brand context
 
         Returns:
             Complete campaign package
         """
         copy_types = copy_types or ["ad", "slogan"]
         platforms = platforms or ["instagram", "facebook"]
+
+        # Build brand contexts for different agent types
+        instagram_context = ""
+        copywriter_context = ""
+        if knowledge:
+            instagram_context = build_brand_context(
+                knowledge=knowledge,
+                settings=settings or {},
+                agent_type="instagram",
+            )
+            copywriter_context = build_brand_context(
+                knowledge=knowledge,
+                settings=settings or {},
+                agent_type="copywriter",
+            )
 
         results = {
             "campaign_type": CampaignType.FULL_MARKETING,
@@ -142,9 +178,10 @@ class CampaignService:
             },
             "agents_used": [],
             "summary": {},
+            "used_brand_context": bool(knowledge),
         }
 
-        # Step 1: Generate marketing copy for each type
+        # Step 1: Generate marketing copy for each type with brand context
         for copy_type in copy_types:
             try:
                 copy_result = await generate_marketing_copy(
@@ -153,6 +190,7 @@ class CampaignService:
                     brand_voice=brand_voice,
                     target_audience=target_audience,
                     company_id=company_id,
+                    brand_context=copywriter_context,
                 )
                 results["outputs"]["copy"][copy_type] = copy_result
                 if "copywriter" not in results["agents_used"]:
@@ -160,7 +198,7 @@ class CampaignService:
             except Exception as e:
                 results["outputs"]["copy"][copy_type] = {"error": str(e)}
 
-        # Step 2: Generate social posts for each platform
+        # Step 2: Generate social posts for each platform with brand context
         for platform in platforms:
             try:
                 post_type = "post"
@@ -174,6 +212,7 @@ class CampaignService:
                     include_hashtags=True,
                     post_type=post_type,
                     company_id=company_id,
+                    brand_context=instagram_context,
                 )
                 results["outputs"]["social_posts"][platform] = post_result
                 if "instagram_specialist" not in results["agents_used"]:
@@ -218,6 +257,8 @@ class CampaignService:
         brand_voice: str = "profesjonalny",
         target_audience: str = "",
         price: str = "",
+        knowledge: dict = None,
+        settings: dict = None,
     ) -> dict[str, Any]:
         """Create a complete product launch campaign.
 
@@ -241,7 +282,7 @@ Kluczowe cechy: {features_text}
 
 Stwórz materiały marketingowe podkreślające unikalne wartości produktu."""
 
-        # Use full marketing campaign
+        # Use full marketing campaign with brand context
         return await self.create_full_marketing_campaign(
             company_id=company_id,
             brief=brief,
@@ -250,6 +291,8 @@ Stwórz materiały marketingowe podkreślające unikalne wartości produktu."""
             target_audience=target_audience,
             copy_types=["description", "ad", "slogan"],
             platforms=["instagram", "facebook"],
+            knowledge=knowledge,
+            settings=settings,
         )
 
     async def create_promo_campaign(
@@ -260,6 +303,8 @@ Stwórz materiały marketingowe podkreślające unikalne wartości produktu."""
         valid_until: str = "",
         brand_voice: str = "profesjonalny",
         target_audience: str = "",
+        knowledge: dict = None,
+        settings: dict = None,
     ) -> dict[str, Any]:
         """Create promotional campaign materials.
 
@@ -289,6 +334,8 @@ Stwórz materiały marketingowe z naciskiem na pilność i wartość dla klienta
             brand_voice=brand_voice,
             target_audience=target_audience,
             include_image=True,
+            knowledge=knowledge,
+            settings=settings,
         )
 
 

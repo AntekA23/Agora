@@ -82,21 +82,24 @@ async def create_social_media_campaign(
             detail="User must belong to a company",
         )
 
-    # Get company settings
+    # Get company settings and knowledge
     company = await db.companies.find_one({"_id": ObjectId(current_user.company_id)})
     if not company:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
 
-    settings = company.get("settings", {})
+    company_settings = company.get("settings", {})
+    company_knowledge = company.get("knowledge", {})
 
-    # Create campaign
+    # Create campaign with brand context
     result = await campaign_service.create_social_media_campaign(
         company_id=current_user.company_id,
         brief=data.brief,
         platforms=data.platforms,
-        brand_voice=settings.get("brand_voice", "profesjonalny"),
-        target_audience=settings.get("target_audience", ""),
+        brand_voice=company_settings.get("brand_voice", "profesjonalny"),
+        target_audience=company_settings.get("target_audience", ""),
         include_image=data.include_image,
+        knowledge=company_knowledge,
+        settings=company_settings,
     )
 
     # Store campaign in database
@@ -145,16 +148,19 @@ async def create_full_marketing_campaign(
     if not company:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
 
-    settings = company.get("settings", {})
+    company_settings = company.get("settings", {})
+    company_knowledge = company.get("knowledge", {})
 
     result = await campaign_service.create_full_marketing_campaign(
         company_id=current_user.company_id,
         brief=data.brief,
         campaign_name=data.campaign_name,
-        brand_voice=settings.get("brand_voice", "profesjonalny"),
-        target_audience=settings.get("target_audience", ""),
+        brand_voice=company_settings.get("brand_voice", "profesjonalny"),
+        target_audience=company_settings.get("target_audience", ""),
         copy_types=data.copy_types,
         platforms=data.platforms,
+        knowledge=company_knowledge,
+        settings=company_settings,
     )
 
     campaign_doc = {
@@ -206,16 +212,19 @@ async def create_product_launch_campaign(
     if not company:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
 
-    settings = company.get("settings", {})
+    company_settings = company.get("settings", {})
+    company_knowledge = company.get("knowledge", {})
 
     result = await campaign_service.create_product_launch_campaign(
         company_id=current_user.company_id,
         product_name=data.product_name,
         product_description=data.product_description,
         key_features=data.key_features,
-        brand_voice=settings.get("brand_voice", "profesjonalny"),
-        target_audience=settings.get("target_audience", ""),
+        brand_voice=company_settings.get("brand_voice", "profesjonalny"),
+        target_audience=company_settings.get("target_audience", ""),
         price=data.price,
+        knowledge=company_knowledge,
+        settings=company_settings,
     )
 
     campaign_doc = {
@@ -266,15 +275,18 @@ async def create_promo_campaign(
     if not company:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
 
-    settings = company.get("settings", {})
+    company_settings = company.get("settings", {})
+    company_knowledge = company.get("knowledge", {})
 
     result = await campaign_service.create_promo_campaign(
         company_id=current_user.company_id,
         promo_type=data.promo_type,
         promo_details=data.promo_details,
         valid_until=data.valid_until,
-        brand_voice=settings.get("brand_voice", "profesjonalny"),
-        target_audience=settings.get("target_audience", ""),
+        brand_voice=company_settings.get("brand_voice", "profesjonalny"),
+        target_audience=company_settings.get("target_audience", ""),
+        knowledge=company_knowledge,
+        settings=company_settings,
     )
 
     campaign_doc = {

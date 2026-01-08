@@ -46,6 +46,7 @@ def create_instagram_crew(
     include_hashtags: bool = True,
     post_type: str = "post",
     memory_context: str = "",
+    brand_context: str = "",
 ) -> Crew:
     """Create a CrewAI crew for Instagram content creation with web research."""
 
@@ -74,14 +75,27 @@ def create_instagram_crew(
         verbose=False,
     )
 
+    # Build comprehensive brand info from context
+    brand_info = ""
+    if brand_context:
+        brand_info = f"""
+
+        SZCZEGOLOWY KONTEKST MARKI:
+        {brand_context}
+
+        Wykorzystaj te informacje przy tworzeniu i ocenie contentu."""
+    else:
+        # Fallback for backward compatibility
+        brand_info = f"""
+        Brand voice firmy: {brand_voice}.
+        Grupa docelowa: {target_audience or 'szeroka publicznosc'}."""
+
     # Marketing Manager - oversees and approves content
     marketing_manager = Agent(
         role="Marketing Manager",
         goal="Nadzoruj tworzenie contentu i upewnij sie ze jest zgodny z brandom",
         backstory=f"""Jestes doswiadczonym Marketing Managerem w polskiej firmie.
-        Znasz sie na social media i wiesz co dziala na Instagramie.
-        Brand voice firmy: {brand_voice}.
-        Grupa docelowa: {target_audience or 'szeroka publicznosc'}.
+        Znasz sie na social media i wiesz co dziala na Instagramie.{brand_info}
         Zawsze odpowiadasz po polsku.""",
         llm=llm,
         verbose=False,
@@ -103,10 +117,8 @@ def create_instagram_crew(
         goal="Tworz angazujace posty na Instagram ktore przyciagaja uwage",
         backstory=f"""Jestes specjalista od Instagrama z wieloletnim doswiadczeniem.
         Wiesz jak pisac teksty ktore generuja zaangazowanie.
-        Korzystasz z danych z researchu aby tworzyc lepszy content.
-        Brand voice: {brand_voice}.
-        Grupa docelowa: {target_audience or 'szeroka publicznosc'}.
-        Zawsze piszesz po polsku.{memory_info}""",
+        Korzystasz z danych z researchu aby tworzyc lepszy content.{brand_info}{memory_info}
+        Zawsze piszesz po polsku.""",
         llm=llm,
         verbose=False,
     )
@@ -139,19 +151,31 @@ Zwroc:
         agent=content_researcher,
     )
 
+    # Build hashtag instruction based on brand context
+    hashtag_instruction = "Bez hashtagow"
+    if include_hashtags:
+        if brand_context and "Hashtagi firmowe:" in brand_context:
+            hashtag_instruction = "Uzyj hashtagow firmowych z kontekstu marki oraz dodaj 3-5 hashtagow z researchu"
+        else:
+            hashtag_instruction = "Uzyj hashtagow z researchu (wybierz 5-10 najlepszych)"
+
     # Task 2: Create content based on research
     create_content_task = Task(
         description=f"""Na podstawie researchu stworz {content_type_desc} na Instagram:
 
 BRIEF: {brief}
 
+{'WAZNE: Masz dostep do szczegolowego kontekstu marki w swoim backstory. Wykorzystaj informacje o produktach, stylach komunikacji i hashtagach firmowych.' if brand_context else ''}
+
 Wymagania:
 1. Tekst musi byc w jezyku polskim
-2. Tekst musi byc angazujacy i zgodny z brand voice: {brand_voice}
-3. {'Uzyj hashtagow z researchu (wybierz 5-10 najlepszych)' if include_hashtags else 'Bez hashtagow'}
-4. Uwzglednij grupe docelowa: {target_audience or 'szeroka publicznosc'}
+2. Tekst musi byc angazujacy i zgodny ze stylem komunikacji z kontekstu marki
+3. {hashtag_instruction}
+4. Uwzglednij grupe docelowa z kontekstu marki
 5. Wykorzystaj trendy znalezione w researchu
-6. Zaproponuj najlepszy czas publikacji
+6. Jesli masz informacje o produktach/uslugach firmy, mozesz je naturalnie wplatac w tresc
+7. Uzywaj preferowanych slow i unikaj slow zabronionych (jesli okreslone w kontekscie)
+8. Zaproponuj najlepszy czas publikacji
 
 Zwroc wynik w formacie:
 - TEKST POSTU: [tekst]
@@ -167,11 +191,13 @@ Zwroc wynik w formacie:
     # Task 3: Review and approve
     review_task = Task(
         description=f"""Przejrzyj stworzony content pod katem:
-1. Zgodnosci z brand voice: {brand_voice}
-2. Atrakcyjnosci dla grupy docelowej: {target_audience or 'szeroka publicznosc'}
+1. Zgodnosci ze stylem komunikacji marki (formalnosc, ton, uzywane slowa)
+2. Atrakcyjnosci dla grupy docelowej okreslonej w kontekscie marki
 3. Poprawnosci jezykowej
 4. Wykorzystania trendow z researchu
 5. Potencjalu wiralowego
+6. {'Uzyte zostaly hashtagi firmowe marki' if brand_context and 'Hashtagi firmowe:' in brand_context else 'Hashtagi sa odpowiednie'}
+7. Nie uzyto slow zabronionych (jesli okreslone w kontekscie)
 
 Jesli wszystko jest OK, zatwierdz content.
 Jesli cos wymaga poprawy, wprowadz korekty.
@@ -204,8 +230,9 @@ async def generate_instagram_post(
     include_hashtags: bool = True,
     post_type: str = "post",
     company_id: str = "",
+    brand_context: str = "",
 ) -> dict:
-    """Generate Instagram post using CrewAI agents with Tavily research and memory."""
+    """Generate Instagram post using CrewAI agents with Tavily research, memory, and brand context."""
 
     # Get memory context if company_id provided
     memory_context = ""
@@ -223,6 +250,7 @@ async def generate_instagram_post(
         include_hashtags=include_hashtags,
         post_type=post_type,
         memory_context=memory_context,
+        brand_context=brand_context,
     )
 
     # Run the crew (this is synchronous in CrewAI, we wrap it)
@@ -238,6 +266,7 @@ async def generate_instagram_post(
         "brief": brief,
         "used_tavily": True,
         "used_memory": bool(memory_context),
+        "used_brand_context": bool(brand_context),
     }
 
     # Try to extract structured data

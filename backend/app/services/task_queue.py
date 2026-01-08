@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.services.agents.marketing.instagram import generate_instagram_post
 from app.services.agents.marketing.copywriter import generate_marketing_copy
 from app.services.agents.finance.invoice import generate_invoice_draft, analyze_cashflow
+from app.services.agents.brand_context import build_brand_context, get_fallback_context
 
 
 async def get_mongodb():
@@ -30,21 +31,33 @@ async def process_instagram_task(ctx: dict, task_id: str, task_input: dict[str, 
             {"$set": {"status": "processing", "updated_at": datetime.utcnow()}}
         )
 
-        # Get company settings
+        # Get company settings and knowledge
         task = await db.tasks.find_one({"_id": ObjectId(task_id)})
         company = await db.companies.find_one({"_id": ObjectId(task["company_id"])})
 
         company_settings = company.get("settings", {}) if company else {}
+        company_knowledge = company.get("knowledge", {}) if company else {}
 
-        # Generate content with memory
+        # Build rich brand context
+        brand_context = build_brand_context(
+            knowledge=company_knowledge,
+            settings=company_settings,
+            agent_type="instagram",
+        )
+
+        # Fallback values for backward compatibility
+        brand_voice, target_audience = get_fallback_context(company_settings)
+
+        # Generate content with memory and brand context
         result = await generate_instagram_post(
             brief=task_input.get("brief", ""),
-            brand_voice=company_settings.get("brand_voice", "profesjonalny"),
-            target_audience=company_settings.get("target_audience", ""),
+            brand_voice=brand_voice,
+            target_audience=target_audience,
             language=company_settings.get("language", "pl"),
             include_hashtags=task_input.get("include_hashtags", True),
             post_type=task_input.get("post_type", "post"),
             company_id=task["company_id"],
+            brand_context=brand_context,
         )
 
         # Update task with result
@@ -91,15 +104,27 @@ async def process_copywriter_task(ctx: dict, task_id: str, task_input: dict[str,
         company = await db.companies.find_one({"_id": ObjectId(task["company_id"])})
 
         company_settings = company.get("settings", {}) if company else {}
+        company_knowledge = company.get("knowledge", {}) if company else {}
+
+        # Build rich brand context for copywriter
+        brand_context = build_brand_context(
+            knowledge=company_knowledge,
+            settings=company_settings,
+            agent_type="copywriter",
+        )
+
+        # Fallback values for backward compatibility
+        brand_voice, target_audience = get_fallback_context(company_settings)
 
         result = await generate_marketing_copy(
             brief=task_input.get("brief", ""),
             copy_type=task_input.get("copy_type", "ad"),
-            brand_voice=company_settings.get("brand_voice", "profesjonalny"),
-            target_audience=company_settings.get("target_audience", ""),
+            brand_voice=brand_voice,
+            target_audience=target_audience,
             language=company_settings.get("language", "pl"),
             max_length=task_input.get("max_length"),
             company_id=task["company_id"],
+            brand_context=brand_context,
         )
 
         await db.tasks.update_one(

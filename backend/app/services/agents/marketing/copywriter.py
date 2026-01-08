@@ -46,8 +46,9 @@ async def generate_marketing_copy(
     language: str = "pl",
     max_length: int | None = None,
     company_id: str = "",
+    brand_context: str = "",
 ) -> dict:
-    """Generate marketing copy using CrewAI agents with Tavily research and memory."""
+    """Generate marketing copy using CrewAI agents with Tavily research, memory, and brand context."""
 
     # Get memory context if company_id provided
     memory_context = ""
@@ -76,6 +77,21 @@ async def generate_marketing_copy(
     }.get(copy_type, "tekst reklamowy")
 
     length_instruction = f"Maksymalna dlugosc: {max_length} znakow." if max_length else ""
+
+    # Build comprehensive brand info from context
+    brand_info = ""
+    if brand_context:
+        brand_info = f"""
+
+        SZCZEGOLOWY KONTEKST MARKI:
+        {brand_context}
+
+        Wykorzystaj informacje o produktach, bolaczkach klientow i przewagach konkurencyjnych."""
+    else:
+        # Fallback for backward compatibility
+        brand_info = f"""
+        Brand voice: {brand_voice}.
+        Grupa docelowa: {target_audience or 'szeroka publicznosc'}."""
 
     # SEO/Market Researcher
     seo_researcher = Agent(
@@ -107,10 +123,8 @@ async def generate_marketing_copy(
         goal="Tworz przekonujace teksty marketingowe ktore sprzedaja",
         backstory=f"""Jestes doswiadczonym copywriterem specjalizujacym sie w polskim rynku.
         Znasz techniki perswazji i wiesz jak pisac teksty ktore konwertuja.
-        Wykorzystujesz dane z researchu do tworzenia lepszych tekstow.
-        Brand voice: {brand_voice}.
-        Grupa docelowa: {target_audience or 'szeroka publicznosc'}.
-        Zawsze piszesz po polsku.{memory_info}""",
+        Wykorzystujesz dane z researchu do tworzenia lepszych tekstow.{brand_info}{memory_info}
+        Zawsze piszesz po polsku.""",
         llm=llm,
         verbose=False,
     )
@@ -119,8 +133,7 @@ async def generate_marketing_copy(
         role="Marketing Manager",
         goal="Upewnij sie ze teksty sa zgodne z brandom i skuteczne",
         backstory=f"""Jestes Marketing Managerem z doswiadczeniem w polskich firmach.
-        Oceniasz teksty pod katem skutecznosci i zgodnosci z brandom.
-        Brand voice: {brand_voice}.""",
+        Oceniasz teksty pod katem skutecznosci i zgodnosci z brandom.{brand_info}""",
         llm=llm,
         verbose=False,
     )
@@ -151,18 +164,24 @@ Zwroc:
 
 BRIEF: {brief}
 
+{'WAZNE: Masz dostep do szczegolowego kontekstu marki w swoim backstory. Wykorzystaj informacje o produktach, bolaczkach klientow, ich celach i przewagach konkurencyjnych.' if brand_context else ''}
+
 Wymagania:
 1. Jezyk polski
-2. Brand voice: {brand_voice}
-3. Grupa docelowa: {target_audience or 'szeroka publicznosc'}
-4. Wykorzystaj slowa kluczowe z researchu
-5. Zastosuj techniki ktore dzialaja u konkurencji
+2. Styl zgodny z tonem komunikacji z kontekstu marki
+3. Adresuj bolaczki grupy docelowej (jesli okreslone w kontekscie)
+4. Podkresl jak produkt/usluga realizuje cele klientow
+5. Wykorzystaj slowa kluczowe z researchu
+6. Uzywaj preferowanych slow i unikaj slow zabronionych (jesli okreslone w kontekscie)
+7. Zastosuj techniki ktore dzialaja u konkurencji
+8. Wykorzystaj USP produktow/uslug (jesli dostepne w kontekscie)
 {length_instruction}
 
 Stworz 2-3 warianty tekstu do wyboru.
 Dla kazdego wariantu:
 - Oznacz wykorzystane slowa kluczowe
-- Wyjasnij jaka technike perswazji zastosowales""",
+- Wyjasnij jaka technike perswazji zastosowales
+- Wskazac ktore bolaczki/cele klienta adresujesz""",
         expected_output="2-3 warianty tekstu marketingowego z uzasadnieniem",
         agent=copywriter,
         context=[research_task],
@@ -170,13 +189,16 @@ Dla kazdego wariantu:
 
     # Task 3: Review and select best
     review_task = Task(
-        description="""Przejrzyj stworzone teksty i wybierz najlepszy wariant.
+        description=f"""Przejrzyj stworzone teksty i wybierz najlepszy wariant.
 
 Ocen kazdy wariant pod katem:
 1. Wykorzystania slow kluczowych z researchu
 2. Skutecznosci technik perswazji
-3. Zgodnosci z brand voice
+3. Zgodnosci ze stylem komunikacji marki
 4. Potencjalu konwersji
+5. {'Adresowania bolaczeк i celow klientow z kontekstu marki' if brand_context else 'Trafnosci do grupy docelowej'}
+6. {'Nie uzyto slow zabronionych (jesli okreslone w kontekscie)' if brand_context else ''}
+7. {'Wykorzystania USP produktow/uslug' if brand_context else ''}
 
 Wybierz najlepszy wariant i uzasadnij krotko swoj wybor.
 Wprowadz ewentualne poprawki do wybranego tekstu.
@@ -206,4 +228,5 @@ Zwroc w formacie:
         "brief": brief,
         "used_tavily": True,
         "used_memory": bool(memory_context),
+        "used_brand_context": bool(brand_context),
     }
