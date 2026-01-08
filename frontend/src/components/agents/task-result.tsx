@@ -1,11 +1,37 @@
 "use client";
 
-import { useTask } from "@/hooks/use-tasks";
+import { useState } from "react";
+import { useTask, useRetryTask } from "@/hooks/use-tasks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Copy, Check, AlertCircle, Download, FileText } from "lucide-react";
-import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Loader2,
+  Copy,
+  Check,
+  AlertCircle,
+  Download,
+  RefreshCw,
+  Calendar,
+  Send,
+  Clock,
+  Image,
+  FileText,
+  Hash,
+  Sparkles,
+  X,
+  Edit2,
+  Instagram,
+} from "lucide-react";
 
 interface TaskResultProps {
   taskId: string;
@@ -18,6 +44,7 @@ interface TaskOutput {
   hashtags?: string;
   suggested_time?: string;
   image_prompt?: string;
+  image_url?: string;
   total_gross?: number;
   total_net?: number;
   vat?: number;
@@ -27,24 +54,43 @@ interface TaskOutput {
 }
 
 const statusConfig = {
-  pending: { label: "Oczekuje", variant: "secondary" as const },
-  processing: { label: "Przetwarzanie", variant: "info" as const },
-  completed: { label: "Ukonczone", variant: "success" as const },
-  failed: { label: "Blad", variant: "destructive" as const },
+  pending: { label: "Oczekuje", variant: "secondary" as const, color: "text-yellow-500" },
+  processing: { label: "Przetwarzanie", variant: "secondary" as const, color: "text-blue-500" },
+  completed: { label: "Gotowe", variant: "default" as const, color: "text-green-500" },
+  failed: { label: "Blad", variant: "destructive" as const, color: "text-red-500" },
+};
+
+const agentLabels: Record<string, string> = {
+  instagram_specialist: "Post Instagram",
+  copywriter: "Tekst reklamowy",
+  invoice_worker: "Faktura VAT",
+  cashflow_analyst: "Analiza Cashflow",
+};
+
+const agentIcons: Record<string, typeof Instagram> = {
+  instagram_specialist: Instagram,
+  copywriter: FileText,
+  invoice_worker: FileText,
+  cashflow_analyst: FileText,
 };
 
 export function TaskResult({ taskId, onClose }: TaskResultProps) {
   const { data: task, isLoading, error } = useTask(taskId);
-  const [copied, setCopied] = useState(false);
+  const retryTask = useRetryTask();
 
-  const copyToClipboard = (text: string) => {
+  const [copied, setCopied] = useState<string | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [customDate, setCustomDate] = useState("");
+  const [customTime, setCustomTime] = useState("18:00");
+
+  const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied(type);
+    setTimeout(() => setCopied(null), 2000);
   };
 
-  const exportToFile = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const exportToFile = (content: string, filename: string, type: string = "text/plain") => {
+    const blob = new Blob([content], { type: `${type};charset=utf-8` });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -55,11 +101,38 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
     URL.revokeObjectURL(url);
   };
 
+  const handleRetry = () => {
+    if (task) {
+      retryTask.mutate(task.id);
+    }
+  };
+
+  const handleSchedule = (when: string) => {
+    // In a real app, this would call an API to schedule the post
+    console.log("Scheduling post for:", when);
+    setScheduleOpen(false);
+    // Show success toast or notification
+  };
+
+  const getScheduleLabel = (when: string) => {
+    switch (when) {
+      case "now":
+        return "Teraz";
+      case "today_evening":
+        return "Dzis 18:00";
+      case "tomorrow_noon":
+        return "Jutro 12:00";
+      default:
+        return when;
+    }
+  };
+
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <Card className="border-2">
+        <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Ladowanie wynikow...</p>
         </CardContent>
       </Card>
     );
@@ -67,21 +140,29 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
 
   if (error || !task) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8 text-destructive">
-          <AlertCircle className="h-5 w-5 mr-2" />
-          Nie mozna zaladowac zadania
+      <Card className="border-2 border-destructive/50">
+        <CardContent className="flex flex-col items-center justify-center py-12 gap-3 text-destructive">
+          <AlertCircle className="h-8 w-8" />
+          <p className="font-medium">Nie mozna zaladowac zadania</p>
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Zamknij
+          </Button>
         </CardContent>
       </Card>
     );
   }
 
   const status = statusConfig[task.status];
-  const agentLabels: Record<string, string> = {
-    instagram_specialist: "Instagram Post",
-    copywriter: "Copywriting",
-    invoice_worker: "Faktura VAT",
-    cashflow_analyst: "Analiza Cashflow",
+  const AgentIcon = agentIcons[task.agent] || FileText;
+  const output = task.output as TaskOutput | undefined;
+
+  // Get the main content to copy
+  const getMainContent = () => {
+    if (!output) return "";
+    if (output.post_text) {
+      return output.post_text + (output.hashtags ? "\n\n" + output.hashtags : "");
+    }
+    return output.content || "";
   };
 
   const getExportFilename = () => {
@@ -91,160 +172,443 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="space-y-1">
-          <CardTitle className="text-lg">Wynik zadania</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {agentLabels[task.agent] || task.agent}
-          </p>
+    <Card className="border-2">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${task.status === "completed" ? "bg-green-500/10" : "bg-muted"}`}>
+              <AgentIcon className={`h-5 w-5 ${status.color}`} />
+            </div>
+            <div>
+              <CardTitle className="text-lg">
+                {agentLabels[task.agent] || task.agent}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {task.input?.brief as string || "Zadanie"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant={status.variant}>{status.label}</Badge>
+            {onClose && (
+              <Button variant="ghost" size="icon" onClick={onClose}>
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
-        <Badge variant={status.variant}>{status.label}</Badge>
       </CardHeader>
+
       <CardContent className="space-y-4">
-        {task.status === "processing" && (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Agent pracuje nad Twoim zadaniem...</span>
+        {/* Processing state */}
+        {(task.status === "processing" || task.status === "pending") && (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
+              <div className="relative flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="font-medium">
+                {task.status === "processing" ? "Agent pracuje..." : "W kolejce..."}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                To moze potrwac kilka sekund
+              </p>
+            </div>
           </div>
         )}
 
-        {task.status === "pending" && (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Zadanie w kolejce...</span>
+        {/* Failed state */}
+        {task.status === "failed" && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 text-destructive">
+              <AlertCircle className="h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-medium">Wystapil blad</p>
+                <p className="text-sm opacity-80">{task.error || "Nieznany blad"}</p>
+              </div>
+            </div>
+            <Button onClick={handleRetry} disabled={retryTask.isPending} className="w-full">
+              {retryTask.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Sprobuj ponownie
+            </Button>
           </div>
         )}
 
-        {task.status === "failed" && task.error && (
-          <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-lg">
-            {task.error}
-          </div>
-        )}
+        {/* Completed state - Social Media Post */}
+        {task.status === "completed" && output && (task.agent === "instagram_specialist" || output.post_text) && (
+          <div className="space-y-4">
+            {/* Success banner */}
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 text-green-700 dark:text-green-400">
+              <Check className="h-5 w-5" />
+              <span className="font-medium">Post gotowy!</span>
+            </div>
 
-        {task.status === "completed" && task.output && (() => {
-          const output = task.output as TaskOutput;
-          return (
-            <div className="space-y-4">
-              {/* Export buttons */}
-              <div className="flex gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copyToClipboard(output.content || "")}
-                >
-                  {copied ? (
-                    <Check className="h-4 w-4 mr-1" />
-                  ) : (
-                    <Copy className="h-4 w-4 mr-1" />
-                  )}
-                  {copied ? "Skopiowano" : "Kopiuj"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => exportToFile(output.content || "", getExportFilename())}
-                >
-                  <Download className="h-4 w-4 mr-1" />
-                  Eksportuj
-                </Button>
+            {/* Post preview */}
+            <div className="border rounded-lg overflow-hidden">
+              {/* Mock Instagram header */}
+              <div className="flex items-center gap-3 p-3 border-b bg-muted/30">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
+                <span className="font-medium text-sm">twoja_firma</span>
               </div>
 
-              {/* Main content */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Wygenerowany content</Label>
-                <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm max-h-96 overflow-y-auto">
-                  {output.content || ""}
-                </div>
-              </div>
-
-              {/* Extracted fields for Instagram */}
-              {output.post_text && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Tekst postu</Label>
-                  <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                    {output.post_text}
-                  </div>
+              {/* Image placeholder */}
+              {output.image_prompt && (
+                <div className="aspect-square bg-muted flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                  <Image className="h-12 w-12" />
+                  <p className="text-xs text-center px-4">
+                    {output.image_url ? "Grafika wygenerowana" : "Opis grafiki do wygenerowania"}
+                  </p>
                 </div>
               )}
+
+              {/* Post text */}
+              <div className="p-4 space-y-3">
+                <p className="text-sm whitespace-pre-wrap">
+                  {output.post_text || output.content}
+                </p>
+                {output.hashtags && (
+                  <p className="text-sm text-primary">
+                    {output.hashtags}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Suggested time */}
+            {output.suggested_time && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                <span>Sugerowany czas: {output.suggested_time}</span>
+              </div>
+            )}
+
+            {/* Image prompt */}
+            {output.image_prompt && (
+              <div className="p-3 rounded-lg bg-muted/50 space-y-1">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Image className="h-4 w-4" />
+                  Opis grafiki
+                </div>
+                <p className="text-sm text-muted-foreground">{output.image_prompt}</p>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Co dalej?</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => copyToClipboard(getMainContent(), "text")}
+                  className="gap-2"
+                >
+                  {copied === "text" ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                  {copied === "text" ? "Skopiowano!" : "Kopiuj tekst"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => exportToFile(getMainContent(), getExportFilename())}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Pobierz
+                </Button>
+              </div>
 
               {output.hashtags && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Hashtagi</Label>
-                  <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                    {output.hashtags}
-                  </div>
-                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => copyToClipboard(output.hashtags || "", "hashtags")}
+                  className="w-full gap-2"
+                >
+                  {copied === "hashtags" ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Hash className="h-4 w-4" />
+                  )}
+                  {copied === "hashtags" ? "Skopiowano!" : "Kopiuj hashtagi"}
+                </Button>
               )}
 
-              {output.suggested_time && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Sugerowany czas publikacji</Label>
-                  <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                    {output.suggested_time}
-                  </div>
-                </div>
-              )}
-
-              {output.image_prompt && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Opis grafiki</Label>
-                  <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                    {output.image_prompt}
-                  </div>
-                </div>
-              )}
-
-              {/* Finance specific fields */}
-              {output.total_gross !== undefined && (
-                <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Netto</Label>
-                    <p className="font-medium">{output.total_net?.toFixed(2)} PLN</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">VAT (23%)</Label>
-                    <p className="font-medium">{output.vat?.toFixed(2)} PLN</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Brutto</Label>
-                    <p className="font-medium">{output.total_gross?.toFixed(2)} PLN</p>
-                  </div>
-                </div>
-              )}
-
-              {output.balance !== undefined && (
-                <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Przychody</Label>
-                    <p className="font-medium text-green-600">{output.total_income?.toFixed(2)} PLN</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Wydatki</Label>
-                    <p className="font-medium text-red-600">{output.total_expenses?.toFixed(2)} PLN</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Bilans</Label>
-                    <p className={`font-medium ${(output.balance ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {output.balance?.toFixed(2)} PLN
-                    </p>
-                  </div>
-                </div>
-              )}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleRetry}
+                  disabled={retryTask.isPending}
+                  className="flex-1 gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${retryTask.isPending ? "animate-spin" : ""}`} />
+                  Generuj inny
+                </Button>
+                <Button
+                  onClick={() => setScheduleOpen(true)}
+                  className="flex-1 gap-2"
+                >
+                  <Send className="h-4 w-4" />
+                  Zaplanuj
+                </Button>
+              </div>
             </div>
-          );
-        })()}
+          </div>
+        )}
 
-        {onClose && (
-          <Button variant="outline" onClick={onClose} className="w-full">
-            Zamknij
-          </Button>
+        {/* Completed state - Copywriting */}
+        {task.status === "completed" && output && task.agent === "copywriter" && !output.post_text && (
+          <div className="space-y-4">
+            {/* Success banner */}
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 text-green-700 dark:text-green-400">
+              <Check className="h-5 w-5" />
+              <span className="font-medium">Tekst gotowy!</span>
+            </div>
+
+            {/* Content preview */}
+            <div className="p-4 rounded-lg border bg-muted/30">
+              <p className="whitespace-pre-wrap text-sm">{output.content}</p>
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Co dalej?</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => copyToClipboard(output.content || "", "text")}
+                  className="gap-2"
+                >
+                  {copied === "text" ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                  {copied === "text" ? "Skopiowano!" : "Kopiuj tekst"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => exportToFile(output.content || "", getExportFilename())}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Pobierz
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleRetry}
+                disabled={retryTask.isPending}
+                className="w-full gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${retryTask.isPending ? "animate-spin" : ""}`} />
+                Generuj inny wariant
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Completed state - Finance (Invoice/Cashflow) */}
+        {task.status === "completed" && output && (output.total_gross !== undefined || output.balance !== undefined) && (
+          <div className="space-y-4">
+            {/* Success banner */}
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 text-green-700 dark:text-green-400">
+              <Check className="h-5 w-5" />
+              <span className="font-medium">Dokument gotowy!</span>
+            </div>
+
+            {/* Invoice summary */}
+            {output.total_gross !== undefined && (
+              <div className="grid grid-cols-3 gap-4 p-4 rounded-lg border bg-muted/30">
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Netto</p>
+                  <p className="font-bold">{output.total_net?.toFixed(2)} PLN</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-1">VAT</p>
+                  <p className="font-bold">{output.vat?.toFixed(2)} PLN</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Brutto</p>
+                  <p className="font-bold text-primary">{output.total_gross?.toFixed(2)} PLN</p>
+                </div>
+              </div>
+            )}
+
+            {/* Cashflow summary */}
+            {output.balance !== undefined && (
+              <div className="grid grid-cols-3 gap-4 p-4 rounded-lg border bg-muted/30">
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Przychody</p>
+                  <p className="font-bold text-green-600">{output.total_income?.toFixed(2)} PLN</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Wydatki</p>
+                  <p className="font-bold text-red-600">{output.total_expenses?.toFixed(2)} PLN</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Bilans</p>
+                  <p className={`font-bold ${(output.balance ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {output.balance?.toFixed(2)} PLN
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Full content */}
+            {output.content && (
+              <div className="p-4 rounded-lg border bg-muted/30 max-h-64 overflow-y-auto">
+                <p className="whitespace-pre-wrap text-sm font-mono">{output.content}</p>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                onClick={() => copyToClipboard(output.content || "", "text")}
+                className="gap-2"
+              >
+                {copied === "text" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied === "text" ? "Skopiowano!" : "Kopiuj"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => exportToFile(output.content || "", getExportFilename())}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Eksportuj
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Generic completed state */}
+        {task.status === "completed" && output && !output.post_text && !output.total_gross && !output.balance && task.agent !== "copywriter" && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 text-green-700 dark:text-green-400">
+              <Check className="h-5 w-5" />
+              <span className="font-medium">Zadanie ukonczone!</span>
+            </div>
+
+            <div className="p-4 rounded-lg border bg-muted/30 max-h-96 overflow-y-auto">
+              <p className="whitespace-pre-wrap text-sm">{output.content}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                onClick={() => copyToClipboard(output.content || "", "text")}
+                className="gap-2"
+              >
+                {copied === "text" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied === "text" ? "Skopiowano!" : "Kopiuj"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => exportToFile(output.content || "", getExportFilename())}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Pobierz
+              </Button>
+            </div>
+          </div>
         )}
       </CardContent>
+
+      {/* Schedule Dialog */}
+      <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Zaplanuj publikacje
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Wybierz kiedy chcesz opublikowac post:
+            </p>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                onClick={() => handleSchedule("now")}
+                className="h-auto py-3 flex-col gap-1"
+              >
+                <Send className="h-5 w-5" />
+                <span>Teraz</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleSchedule("today_evening")}
+                className="h-auto py-3 flex-col gap-1"
+              >
+                <Clock className="h-5 w-5" />
+                <span>Dzis 18:00</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleSchedule("tomorrow_noon")}
+                className="h-auto py-3 flex-col gap-1"
+              >
+                <Calendar className="h-5 w-5" />
+                <span>Jutro 12:00</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {}}
+                className="h-auto py-3 flex-col gap-1 opacity-50"
+                disabled
+              >
+                <Sparkles className="h-5 w-5" />
+                <span>Optymalny</span>
+                <span className="text-xs text-muted-foreground">Wkrotce</span>
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm">Lub wybierz date i godzine:</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                  className="flex-1"
+                />
+                <Input
+                  type="time"
+                  value={customTime}
+                  onChange={(e) => setCustomTime(e.target.value)}
+                  className="w-24"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScheduleOpen(false)}>
+              Anuluj
+            </Button>
+            <Button
+              onClick={() => handleSchedule(`${customDate} ${customTime}`)}
+              disabled={!customDate}
+            >
+              Zaplanuj
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
-}
-
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <p className={className}>{children}</p>;
 }
