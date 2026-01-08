@@ -1,5 +1,4 @@
 import asyncio
-import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,32 +10,34 @@ from app.services.database import mongodb, redis_client
 from app.services.database.qdrant import qdrant_service
 from app.services.database.indexes import create_indexes
 
-# Global reference to worker thread
-_worker_thread = None
-_worker_stop_event = threading.Event()
+# Global reference to worker task
+_worker_task = None
 
 
-def run_arq_worker_sync():
-    """Run ARQ worker in a separate thread with its own event loop."""
-    from arq import run_worker
+async def run_arq_worker():
+    """Run ARQ worker in background using Worker class directly."""
+    from arq.worker import Worker
     from app.services.task_queue import WorkerSettings
 
-    print("Starting ARQ worker in background thread...")
+    print("Starting ARQ worker...")
     try:
-        # Create new event loop for this thread
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(run_worker(WorkerSettings))
+        worker = Worker(
+            functions=WorkerSettings.functions,
+            cron_jobs=WorkerSettings.cron_jobs,
+            redis_settings=WorkerSettings.redis_settings(),
+            handle_signals=False,  # Disable signal handling for embedded use
+        )
+        await worker.main()
+    except asyncio.CancelledError:
+        print("ARQ worker cancelled")
     except Exception as e:
         print(f"ARQ worker error: {e}")
-    finally:
-        loop.close()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan - startup and shutdown events."""
-    global _worker_thread
+    global _worker_task
 
     # Connect to databases with error handling
     try:
@@ -64,20 +65,24 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass  # Indexes may already exist
 
-    # Start ARQ worker in background thread
+    # Start ARQ worker as background task
     try:
-        _worker_thread = threading.Thread(target=run_arq_worker_sync, daemon=True)
-        _worker_thread.start()
-        print("ARQ worker thread started")
+        _worker_task = asyncio.create_task(run_arq_worker())
+        print("ARQ worker task started")
     except Exception as e:
         print(f"Failed to start ARQ worker: {e}")
 
     yield
 
     # Cleanup
-    # Signal worker to stop (daemon thread will be killed automatically)
-    _worker_stop_event.set()
-    print("ARQ worker stopping...")
+    # Cancel worker task
+    if _worker_task:
+        _worker_task.cancel()
+        try:
+            await _worker_task
+        except asyncio.CancelledError:
+            pass
+        print("ARQ worker stopped")
 
     try:
         qdrant_service.disconnect()
