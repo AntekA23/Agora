@@ -10,7 +10,7 @@ Provides validation capabilities for Polish business identifiers:
 """
 
 import re
-from typing import Literal
+from typing import ClassVar, Literal, Pattern
 
 from crewai.tools import BaseTool
 from pydantic import Field
@@ -32,7 +32,7 @@ class NIPValidatorTool(BaseTool):
     Zwraca informacje czy NIP jest poprawny oraz sformatowany numer."""
 
     # NIP weights for checksum
-    NIP_WEIGHTS = [6, 5, 7, 2, 3, 4, 5, 6, 7]
+    NIP_WEIGHTS: ClassVar[list[int]] = [6, 5, 7, 2, 3, 4, 5, 6, 7]
 
     def _run(self, nip: str) -> str:
         """Validate NIP number."""
@@ -85,8 +85,8 @@ class REGONValidatorTool(BaseTool):
     Zwraca informacje czy REGON jest poprawny."""
 
     # REGON weights
-    REGON9_WEIGHTS = [8, 9, 2, 3, 4, 5, 6, 7]
-    REGON14_WEIGHTS = [2, 4, 8, 5, 0, 9, 7, 3, 6, 1, 2, 4, 8]
+    REGON9_WEIGHTS: ClassVar[list[int]] = [8, 9, 2, 3, 4, 5, 6, 7]
+    REGON14_WEIGHTS: ClassVar[list[int]] = [2, 4, 8, 5, 0, 9, 7, 3, 6, 1, 2, 4, 8]
 
     def _run(self, regon: str) -> str:
         """Validate REGON number."""
@@ -168,7 +168,7 @@ class IBANValidatorTool(BaseTool):
     Zwraca informacje czy IBAN jest poprawny oraz kod banku."""
 
     # Polish bank codes (first 3 digits after country code)
-    POLISH_BANKS = {
+    POLISH_BANKS: ClassVar[dict[str, str]] = {
         "102": "PKO BP",
         "103": "Bank Handlowy (Citi)",
         "105": "ING Bank Slaski",
@@ -271,7 +271,7 @@ class PESELValidatorTool(BaseTool):
 
     Zwraca informacje czy PESEL jest poprawny, date urodzenia i plec."""
 
-    PESEL_WEIGHTS = [1, 3, 7, 9, 1, 3, 7, 9, 1, 3]
+    PESEL_WEIGHTS: ClassVar[list[int]] = [1, 3, 7, 9, 1, 3, 7, 9, 1, 3]
 
     def _run(self, pesel: str) -> str:
         """Validate PESEL number."""
@@ -346,7 +346,7 @@ class EmailValidatorTool(BaseTool):
     Sprawdza poprawnosc formatu adresu email."""
 
     # Email regex pattern (simplified but effective)
-    EMAIL_PATTERN = re.compile(
+    EMAIL_PATTERN: ClassVar[Pattern[str]] = re.compile(
         r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     )
 

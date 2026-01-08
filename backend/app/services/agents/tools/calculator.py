@@ -10,7 +10,7 @@ Provides calculation capabilities for:
 
 import re
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Literal
+from typing import ClassVar, Literal, Pattern
 
 from crewai.tools import BaseTool
 from pydantic import Field
@@ -393,7 +393,7 @@ class GeneralCalculatorTool(BaseTool):
     - '10000 / 12'"""
 
     # Allowed characters in expressions for safety
-    ALLOWED_PATTERN = re.compile(r'^[\d\s\+\-\*\/\.\,\(\)]+$')
+    ALLOWED_PATTERN: ClassVar[Pattern[str]] = re.compile(r'^[\d\s\+\-\*\/\.\,\(\)]+$')
 
     def _run(self, expression: str) -> str:
         """Execute safe mathematical calculation."""
