@@ -18,6 +18,7 @@ from app.api.v1.endpoints import (
     hr,
     integrations,
     legal,
+    notifications,
     onboarding,
     sales,
     schedule_rules,
@@ -59,6 +60,9 @@ api_router.include_router(schedule_rules.router)
 
 # Batch Content Generation
 api_router.include_router(batch.router)
+
+# Notifications
+api_router.include_router(notifications.router)
 
 # Marketing Agents
 api_router.include_router(agents.router)

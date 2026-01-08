@@ -273,6 +273,22 @@ export function useBulkAction() {
   });
 }
 
+export function useBulkApproveContent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      api.post<BulkActionResponse>("/scheduled-content/bulk-action", {
+        ids,
+        action: "approve",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["scheduled-content"] });
+      queryClient.invalidateQueries({ queryKey: ["scheduled-content-stats"] });
+    },
+  });
+}
+
 // Helper functions
 export const statusLabels: Record<ContentStatus, string> = {
   draft: "Szkic",

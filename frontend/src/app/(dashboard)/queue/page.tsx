@@ -49,6 +49,7 @@ import {
 import { QueueList } from "@/components/queue/queue-list";
 import { EditDialog } from "@/components/queue/edit-dialog";
 import { PreviewDialog } from "@/components/queue/preview-dialog";
+import { ApprovalSection } from "@/components/queue/approval-section";
 
 export default function QueuePage() {
   const router = useRouter();
@@ -290,31 +291,13 @@ export default function QueuePage() {
         </Select>
       </div>
 
-      {/* Pending Approval Alert */}
-      {pendingApprovalCount > 0 && statusFilter === "all" && (
-        <Card className="border-yellow-500/50 bg-yellow-500/5">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                <div>
-                  <p className="font-medium">
-                    {pendingApprovalCount} treści czeka na zatwierdzenie
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Sprawdź i zatwierdź treści przed publikacją
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => setStatusFilter("pending_approval")}
-              >
-                Pokaż
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Approval Section */}
+      {statusFilter === "all" && (
+        <ApprovalSection
+          items={data?.items.filter((item) => item.status === "pending_approval") || []}
+          onView={handleView}
+          isLoading={isLoading}
+        />
       )}
 
       {/* Queue List */}

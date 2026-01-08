@@ -5,6 +5,7 @@ import { LogOut, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 export function Navbar() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export function Navbar() {
         <div className="hidden md:block" />
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          {user && <NotificationBell />}
           {user && (
             <div className="flex items-center gap-2">
               <div className="hidden sm:flex items-center gap-2 text-sm">
