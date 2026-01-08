@@ -445,6 +445,66 @@ async def reject_content(
     return _doc_to_response(updated_doc)
 
 
+@router.post("/{content_id}/publish", response_model=ScheduledContentResponse)
+async def publish_content_now(
+    content_id: str,
+    current_user: CurrentUser,
+    db: Database,
+) -> ScheduledContentResponse:
+    """Publish content immediately (marks as published without actual platform integration)."""
+    if not current_user.company_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must belong to a company",
+        )
+
+    try:
+        doc = await db.scheduled_content.find_one({
+            "_id": ObjectId(content_id),
+            "company_id": current_user.company_id,
+        })
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
+
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
+
+    if doc["status"] == ContentStatus.PUBLISHED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Content is already published",
+        )
+
+    if doc["status"] == ContentStatus.FAILED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot publish failed content. Please retry or create new content.",
+        )
+
+    now = datetime.utcnow()
+
+    # In Phase 1, we just mark as published (no actual platform integration yet)
+    # Real publishing will be added in Phase 6
+    update_data = {
+        "status": ContentStatus.PUBLISHED.value,
+        "published_at": now,
+        "updated_at": now,
+    }
+
+    # If not approved yet, auto-approve
+    if not doc.get("approved_by"):
+        update_data["approved_by"] = current_user.id
+        update_data["approved_at"] = now
+
+    await db.scheduled_content.update_one(
+        {"_id": ObjectId(content_id)},
+        {"$set": update_data},
+    )
+
+    updated_doc = await db.scheduled_content.find_one({"_id": ObjectId(content_id)})
+    return _doc_to_response(updated_doc)
+
+
 @router.post("/bulk-action", response_model=BulkActionResponse)
 async def bulk_action(
     data: BulkActionRequest,

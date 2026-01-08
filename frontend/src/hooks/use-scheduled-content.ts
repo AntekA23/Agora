@@ -246,6 +246,20 @@ export function useRejectContent() {
   });
 }
 
+export function usePublishContent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.post<ScheduledContent>(`/scheduled-content/${id}/publish`),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["scheduled-content"] });
+      queryClient.invalidateQueries({ queryKey: ["scheduled-content", id] });
+      queryClient.invalidateQueries({ queryKey: ["scheduled-content-stats"] });
+    },
+  });
+}
+
 export function useBulkAction() {
   const queryClient = useQueryClient();
 

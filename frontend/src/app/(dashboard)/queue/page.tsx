@@ -45,6 +45,8 @@ import {
   platformLabels,
 } from "@/hooks/use-scheduled-content";
 import { QueueList } from "@/components/queue/queue-list";
+import { EditDialog } from "@/components/queue/edit-dialog";
+import { PreviewDialog } from "@/components/queue/preview-dialog";
 
 export default function QueuePage() {
   const router = useRouter();
@@ -57,6 +59,8 @@ export default function QueuePage() {
 
   // Dialog state
   const [deleteItem, setDeleteItem] = React.useState<ScheduledContent | null>(null);
+  const [editItem, setEditItem] = React.useState<ScheduledContent | null>(null);
+  const [previewItem, setPreviewItem] = React.useState<ScheduledContent | null>(null);
 
   // Build filters
   const filters = React.useMemo(() => {
@@ -87,13 +91,11 @@ export default function QueuePage() {
 
   // Handlers
   const handleView = (item: ScheduledContent) => {
-    // TODO: Open preview dialog
-    console.log("View:", item);
+    setPreviewItem(item);
   };
 
   const handleEdit = (item: ScheduledContent) => {
-    // TODO: Open edit dialog
-    console.log("Edit:", item);
+    setEditItem(item);
   };
 
   const handleDelete = async () => {
@@ -353,6 +355,26 @@ export default function QueuePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Dialog */}
+      <EditDialog
+        item={editItem}
+        open={!!editItem}
+        onOpenChange={(open) => !open && setEditItem(null)}
+      />
+
+      {/* Preview Dialog */}
+      <PreviewDialog
+        item={previewItem}
+        open={!!previewItem}
+        onOpenChange={(open) => !open && setPreviewItem(null)}
+        onEdit={() => {
+          if (previewItem) {
+            setEditItem(previewItem);
+            setPreviewItem(null);
+          }
+        }}
+      />
     </div>
   );
 }
