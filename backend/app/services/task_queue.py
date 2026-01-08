@@ -371,12 +371,16 @@ class WorkerSettings:
 
     @staticmethod
     def redis_settings() -> RedisSettings:
-        # Parse Redis URL
-        url = settings.REDIS_URL
-        if url.startswith("redis://"):
-            url = url[8:]
-        host, port = url.split(":") if ":" in url else (url, "6379")
-        return RedisSettings(host=host, port=int(port))
+        # Parse Redis URL properly (handles username:password@host:port)
+        from urllib.parse import urlparse
+
+        parsed = urlparse(settings.REDIS_URL)
+        return RedisSettings(
+            host=parsed.hostname or "localhost",
+            port=parsed.port or 6379,
+            username=parsed.username,
+            password=parsed.password,
+        )
 
 
 async def get_task_queue() -> ArqRedis:
