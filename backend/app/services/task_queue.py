@@ -12,6 +12,7 @@ from app.services.agents.marketing.instagram import generate_instagram_post
 from app.services.agents.marketing.copywriter import generate_marketing_copy
 from app.services.agents.finance.invoice import generate_invoice_draft, analyze_cashflow
 from app.services.agents.brand_context import build_brand_context, get_fallback_context
+from app.services.agents.tools.image_generator import image_service
 
 
 async def get_mongodb():
@@ -59,6 +60,23 @@ async def process_instagram_task(ctx: dict, task_id: str, task_input: dict[str, 
             company_id=task["company_id"],
             brand_context=brand_context,
         )
+
+        # Auto-generate image if image_prompt exists
+        image_prompt = result.get("image_prompt", "")
+        if image_prompt and settings.TOGETHER_API_KEY:
+            try:
+                print(f"Generating image for prompt: {image_prompt[:100]}...")
+                image_result = await image_service.generate_post_image(
+                    description=image_prompt,
+                    platform="instagram",
+                )
+                result["image_url"] = image_result.get("url")
+                result["image_generated"] = True
+                print(f"Image generated: {result['image_url']}")
+            except Exception as img_error:
+                print(f"Image generation failed: {img_error}")
+                result["image_error"] = str(img_error)
+                result["image_generated"] = False
 
         # Update task with result
         await db.tasks.update_one(
