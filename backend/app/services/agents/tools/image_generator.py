@@ -46,7 +46,6 @@ class ImageGeneratorTool(BaseTool):
                 prompt=self._enhance_prompt(prompt),
                 width=1024,
                 height=1024,
-                n=1,
             )
 
             if response.data and len(response.data) > 0:
@@ -143,7 +142,6 @@ class SocialMediaImageTool(BaseTool):
                 prompt=enhanced_prompt,
                 width=width,
                 height=height,
-                n=1,
             )
 
             if response.data and len(response.data) > 0:
@@ -185,7 +183,6 @@ class ImageService:
             prompt=prompt,
             width=width,
             height=height,
-            n=1,
         )
 
         if not response.data or len(response.data) == 0:
