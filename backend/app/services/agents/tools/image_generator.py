@@ -46,7 +46,6 @@ class ImageGeneratorTool(BaseTool):
                 prompt=self._enhance_prompt(prompt),
                 width=1024,
                 height=1024,
-                steps=4,
                 n=1,
             )
 
@@ -144,7 +143,6 @@ class SocialMediaImageTool(BaseTool):
                 prompt=enhanced_prompt,
                 width=width,
                 height=height,
-                steps=4,
                 n=1,
             )
 
@@ -177,9 +175,8 @@ class ImageService:
         prompt: str,
         width: int = 1024,
         height: int = 1024,
-        steps: int = 4,
     ) -> dict:
-        """Generate image with FLUX."""
+        """Generate image with FLUX.1.1 Pro."""
         if not self.client:
             raise ValueError("Together.ai API key not configured")
 
@@ -188,7 +185,6 @@ class ImageService:
             prompt=prompt,
             width=width,
             height=height,
-            steps=steps,
             n=1,
         )
 

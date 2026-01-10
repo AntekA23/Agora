@@ -44,7 +44,7 @@ class Settings(BaseSettings):
 
     # Together.ai (Image Generation)
     TOGETHER_API_KEY: str = ""
-    TOGETHER_IMAGE_MODEL: str = "black-forest-labs/FLUX.1-schnell"
+    TOGETHER_IMAGE_MODEL: str = "black-forest-labs/FLUX.1.1-pro"
 
     # Meta (Facebook/Instagram) Integration
     # NOTE: These are AGORA APP credentials from Meta Developer Portal
