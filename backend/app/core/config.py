@@ -42,9 +42,9 @@ class Settings(BaseSettings):
     TAVILY_SEARCH_DEPTH: str = "advanced"  # basic | advanced
     TAVILY_MAX_RESULTS: int = 5
 
-    # Together.ai (Image Generation)
+    # Together.ai (Image Generation - Nano Banana Pro / Gemini 3 Pro Image)
     TOGETHER_API_KEY: str = ""
-    TOGETHER_IMAGE_MODEL: str = "black-forest-labs/FLUX.1.1-pro"
+    TOGETHER_IMAGE_MODEL: str = "google/gemini-3-pro-image"
 
     # Meta (Facebook/Instagram) Integration
     # NOTE: These are AGORA APP credentials from Meta Developer Portal

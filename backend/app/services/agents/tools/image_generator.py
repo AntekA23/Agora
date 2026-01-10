@@ -1,4 +1,4 @@
-"""Image Generator tool using Together.ai FLUX for creating visuals."""
+"""Image Generator tool using Together.ai Nano Banana Pro (Gemini 3 Pro Image) for creating visuals."""
 
 import base64
 import httpx
@@ -11,14 +11,14 @@ from app.core.config import settings
 
 
 class ImageGeneratorTool(BaseTool):
-    """Tool for generating images using FLUX.
+    """Tool for generating images using Nano Banana Pro (Gemini 3 Pro Image).
 
     Creates professional images for social media posts,
-    marketing materials, and other visual content.
+    marketing materials, and other visual content with SOTA text rendering.
     """
 
     name: str = "image_generator"
-    description: str = """Generuje obrazy za pomoca FLUX. Uzyj tego narzedzia gdy potrzebujesz:
+    description: str = """Generuje obrazy za pomoca Nano Banana Pro (Gemini 3 Pro Image). Uzyj tego narzedzia gdy potrzebujesz:
     - Grafiki do posta na social media
     - Obrazu do kampanii marketingowej
     - Wizualizacji produktu lub uslugi
@@ -163,7 +163,7 @@ Wskazowka: Pobierz obraz i dostosuj do wymagan platformy jesli potrzeba."""
 
 
 class ImageService:
-    """Service for image generation operations using Together.ai FLUX."""
+    """Service for image generation operations using Nano Banana Pro (Gemini 3 Pro Image)."""
 
     def __init__(self):
         self.client = None
@@ -176,7 +176,7 @@ class ImageService:
         width: int = 1024,
         height: int = 1024,
     ) -> dict:
-        """Generate image with FLUX.1.1 Pro."""
+        """Generate image with Nano Banana Pro."""
         if not self.client:
             raise ValueError("Together.ai API key not configured")
 
