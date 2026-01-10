@@ -47,6 +47,11 @@ class Intent(str, Enum):
     FAQ = "faq"
     SENTIMENT_ANALYSIS = "sentiment_analysis"
 
+    # Informational / Conversational
+    HELP = "help"
+    GREETING = "greeting"
+    CAPABILITIES = "capabilities"
+
     # General
     UNKNOWN = "unknown"
 
@@ -203,6 +208,27 @@ INTENT_PATTERNS: dict[Intent, list[str]] = {
         r"opini[ae]|recenzj[ae]",
         r"nastroj|nastrój\s+klientów",
         r"feedback",
+    ],
+
+    # Informational intents
+    Intent.HELP: [
+        r"^pomoc$|^help$",
+        r"jak\s+(działasz|pracujesz|mogę|korzystać)",
+        r"(potrzebuj[ęe]|chc[ęe])\s+pomocy",
+        r"nie\s+wiem\s+(jak|co)",
+        r"wyjaśnij|wytłumacz",
+    ],
+    Intent.GREETING: [
+        r"^(cześć|hej|siema|witaj|dzień\s+dobry|hello|hi)[\s!?]*$",
+        r"^(dobry|miłego)\s+(wieczór|poranek|dzień)",
+    ],
+    Intent.CAPABILITIES: [
+        r"(co|w\s+czym)\s+(możesz|potrafisz|umiesz)",
+        r"(z\s+czym|czym|jak)\s+(możesz|mógłbyś)\s+(mi\s+)?(pomóc|pomagać)",
+        r"(jakie|co)\s+(masz|są)\s+(możliwości|funkcje|umiejętności)",
+        r"co\s+robisz|czym\s+się\s+zajmujesz",
+        r"(przedstaw|pokaż|wymień)\s+(swoje\s+)?(możliwości|funkcje)",
+        r"w\s+kwestii\s+(finans|market|hr|prawny|sprzedaż)",
     ],
 }
 

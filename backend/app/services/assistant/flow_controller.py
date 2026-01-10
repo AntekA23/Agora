@@ -191,6 +191,22 @@ class ConversationFlowController:
         # Interpret the new request
         intent_result = await self._router.interpret(message, conversation_context=context)
 
+        # Handle conversational intents using LLM (no task execution needed)
+        if intent_result.intent in (Intent.GREETING, Intent.HELP, Intent.CAPABILITIES, Intent.UNKNOWN):
+            # Use LLM for intelligent, contextual response
+            response_content = await self._generate_conversational_response(
+                message=message,
+                intent=intent_result.intent,
+                context=context,
+            )
+            return FlowResponse(
+                content=response_content,
+                agent_state=agent_state,
+                intent=intent_result.intent.value,
+                confidence=intent_result.confidence,
+            )
+
+        # Legacy fallback for UNKNOWN if LLM fails (should not reach here normally)
         if intent_result.intent == Intent.UNKNOWN:
             return FlowResponse(
                 content=self._build_unknown_response(),
@@ -816,6 +832,250 @@ class ConversationFlowController:
                 lines.append(f"• {labels[key]}: {display_value}")
 
         return "\n".join(lines) if len(lines) > 1 else ""
+
+    async def _generate_conversational_response(
+        self,
+        message: str,
+        intent: Intent,
+        context: dict[str, Any],
+    ) -> str:
+        """Generate intelligent conversational response using LLM.
+
+        Args:
+            message: User's message
+            intent: Detected intent type
+            context: Conversation context
+
+        Returns:
+            AI-generated response string
+        """
+        try:
+            # Build context for the conversation agent
+            conv_context = ConversationContext(
+                messages=context.get("messages", []),
+                current_task=None,
+                gathered_params={},
+                missing_params=[],
+            )
+
+            # Create a specialized prompt for general conversation
+            system_prompt = self._build_conversational_system_prompt(intent)
+
+            # Use the conversation agent's LLM
+            from langchain_core.messages import SystemMessage, HumanMessage
+
+            messages = [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=message),
+            ]
+
+            response = await conversation_agent.llm.ainvoke(messages)
+            return response.content
+
+        except Exception as e:
+            logger.warning(f"LLM conversation failed: {e}, using fallback")
+            # Fallback to hardcoded responses
+            if intent == Intent.GREETING:
+                return self._build_greeting_response()
+            elif intent == Intent.HELP:
+                return self._build_help_response()
+            elif intent == Intent.CAPABILITIES:
+                domain = self._detect_domain_from_message(message)
+                return self._build_capabilities_response(domain)
+            else:
+                return self._build_unknown_response()
+
+    def _build_conversational_system_prompt(self, intent: Intent) -> str:
+        """Build system prompt for conversational responses."""
+        base_info = """Jesteś Agora - inteligentnym asystentem AI dla firm. Twoje możliwości:
+
+**MARKETING:**
+- Tworzenie postów na social media (Instagram, Facebook, LinkedIn)
+- Pisanie tekstów reklamowych, sloganów, opisów produktów
+- Planowanie kampanii marketingowych
+- Generowanie grafik do postów
+
+**FINANSE:**
+- Generowanie profesjonalnych faktur VAT
+- Analiza przepływów finansowych (cashflow)
+- Planowanie budżetu
+
+**HR:**
+- Tworzenie ogłoszeń o pracę
+- Przygotowanie pytań rekrutacyjnych
+- Materiały onboardingowe dla nowych pracowników
+
+**PRAWO:**
+- Analiza umów i kontraktów
+- Tworzenie polityki prywatności
+- Regulaminy i warunki usług
+- Weryfikacja zgodności z RODO/GDPR
+
+**SPRZEDAŻ:**
+- Przygotowanie ofert handlowych
+- Lead scoring - ocena potencjalnych klientów
+- Emaile follow-up do klientów
+
+**OBSŁUGA KLIENTA:**
+- Odpowiedzi na zgłoszenia i reklamacje
+- Tworzenie bazy FAQ
+- Analiza sentymentu opinii klientów"""
+
+        if intent == Intent.GREETING:
+            return f"""{base_info}
+
+Użytkownik się wita. Odpowiedz przyjaźnie, krótko przedstaw się i zapytaj jak możesz pomóc.
+Bądź naturalny, nie wymieniaj wszystkich funkcji - po prostu przywitaj się ciepło.
+Odpowiadaj po polsku."""
+
+        elif intent == Intent.HELP:
+            return f"""{base_info}
+
+Użytkownik prosi o pomoc lub instrukcje. Wyjaśnij jak korzystać z asystenta:
+- Wystarczy opisać czego potrzebuje naturalnym językiem
+- Możesz podać 2-3 przykłady użycia
+- Bądź pomocny i zachęcający
+Odpowiadaj po polsku."""
+
+        elif intent == Intent.CAPABILITIES:
+            return f"""{base_info}
+
+Użytkownik pyta o Twoje możliwości. Odpowiedz na konkretne pytanie:
+- Jeśli pyta ogólnie - daj przegląd głównych obszarów
+- Jeśli pyta o konkretny obszar (np. finanse) - opisz szczegółowo ten obszar
+- Podaj 1-2 przykłady użycia dla danego obszaru
+Odpowiadaj po polsku, używaj emoji dla lepszej czytelności."""
+
+        else:  # UNKNOWN
+            return f"""{base_info}
+
+Nie rozpoznano konkretnego zadania w wiadomości użytkownika.
+Spróbuj zrozumieć co użytkownik chce osiągnąć i:
+1. Jeśli to pytanie - odpowiedz na nie
+2. Jeśli to prośba niejasna - dopytaj o szczegóły
+3. Jeśli to rozmowa - prowadź ją naturalnie
+
+NIE mów "nie rozumiem" - zawsze staraj się pomóc.
+Jeśli naprawdę nie wiesz o co chodzi, zaproponuj przykłady tego co możesz zrobić.
+Odpowiadaj po polsku, bądź pomocny i naturalny."""
+
+    def _build_greeting_response(self) -> str:
+        """Build friendly greeting response (fallback)."""
+        return (
+            "Cześć! 👋 Jestem **Agora** - Twój asystent biznesowy.\n\n"
+            "Mogę pomóc Ci z:\n"
+            "• 📱 **Marketing** - posty, teksty reklamowe, kampanie\n"
+            "• 💰 **Finanse** - faktury, analizy cashflow\n"
+            "• 👥 **HR** - ogłoszenia o pracę, onboarding\n"
+            "• ⚖️ **Prawo** - umowy, regulaminy, RODO\n"
+            "• 🎯 **Sprzedaż** - oferty, follow-upy, lead scoring\n\n"
+            "Po prostu powiedz mi czego potrzebujesz!"
+        )
+
+    def _build_help_response(self) -> str:
+        """Build help response with usage instructions."""
+        return (
+            "**Jak mogę Ci pomóc?** 🤝\n\n"
+            "Po prostu napisz czego potrzebujesz, np.:\n"
+            "• *\"Stwórz post na Instagram o nowej kawie\"*\n"
+            "• *\"Wygeneruj fakturę dla klienta ABC\"*\n"
+            "• *\"Napisz ogłoszenie o pracę na stanowisko programisty\"*\n\n"
+            "Zadam Ci kilka pytań, żeby doprecyzować szczegóły, "
+            "a potem wykonam zadanie.\n\n"
+            "💡 **Wskazówka**: Możesz też zapytać *\"co możesz zrobić w kwestii finansów?\"* "
+            "żeby poznać moje możliwości w danym obszarze."
+        )
+
+    def _detect_domain_from_message(self, message: str) -> str | None:
+        """Detect which domain the user is asking about."""
+        message_lower = message.lower()
+
+        if any(word in message_lower for word in ["finans", "faktur", "cashflow", "pieniądz", "budżet"]):
+            return "finance"
+        if any(word in message_lower for word in ["market", "reklam", "post", "social", "instagram"]):
+            return "marketing"
+        if any(word in message_lower for word in ["hr", "rekrutac", "pracownik", "zatrudn", "onboard"]):
+            return "hr"
+        if any(word in message_lower for word in ["praw", "umow", "regulamin", "rodo", "gdpr"]):
+            return "legal"
+        if any(word in message_lower for word in ["sprzedaż", "ofert", "klient", "lead", "handl"]):
+            return "sales"
+        if any(word in message_lower for word in ["support", "obsług", "ticket", "zgłoszeni"]):
+            return "support"
+
+        return None
+
+    def _build_capabilities_response(self, domain: str | None = None) -> str:
+        """Build response describing capabilities, optionally for specific domain."""
+
+        capabilities = {
+            "marketing": (
+                "**📱 Marketing - moje możliwości:**\n\n"
+                "• **Posty social media** - Instagram, Facebook, LinkedIn z hashtagami i grafiką\n"
+                "• **Teksty reklamowe** - copy, slogany, opisy produktów\n"
+                "• **Kampanie** - pełne pakiety materiałów marketingowych\n"
+                "• **Newsletter** - treści emailowe\n\n"
+                "Przykład: *\"Stwórz post na Instagram o promocji -20%\"*"
+            ),
+            "finance": (
+                "**💰 Finanse - moje możliwości:**\n\n"
+                "• **Faktury** - generowanie profesjonalnych faktur z VAT\n"
+                "• **Analiza cashflow** - przegląd przepływów finansowych\n"
+                "• **Budżetowanie** - planowanie wydatków\n\n"
+                "Przykład: *\"Wygeneruj fakturę dla firmy ABC na 5000 zł\"*"
+            ),
+            "hr": (
+                "**👥 HR - moje możliwości:**\n\n"
+                "• **Ogłoszenia o pracę** - profesjonalne oferty zatrudnienia\n"
+                "• **Pytania rekrutacyjne** - zestawy na rozmowy kwalifikacyjne\n"
+                "• **Onboarding** - materiały powitalne dla nowych pracowników\n\n"
+                "Przykład: *\"Napisz ogłoszenie o pracę dla programisty Python\"*"
+            ),
+            "legal": (
+                "**⚖️ Prawo - moje możliwości:**\n\n"
+                "• **Analiza umów** - przegląd i uwagi do kontraktów\n"
+                "• **Polityka prywatności** - dokumenty RODO/GDPR\n"
+                "• **Regulaminy** - warunki korzystania z usług\n"
+                "• **Weryfikacja RODO** - sprawdzenie zgodności\n\n"
+                "Przykład: *\"Sprawdź zgodność mojej strony z RODO\"*"
+            ),
+            "sales": (
+                "**🎯 Sprzedaż - moje możliwości:**\n\n"
+                "• **Oferty handlowe** - propozycje i wyceny\n"
+                "• **Lead scoring** - ocena potencjalnych klientów\n"
+                "• **Follow-up** - emaile przypominające do klientów\n\n"
+                "Przykład: *\"Przygotuj ofertę handlową dla klienta XYZ\"*"
+            ),
+            "support": (
+                "**🎧 Obsługa klienta - moje możliwości:**\n\n"
+                "• **Odpowiedzi na zgłoszenia** - profesjonalne odpowiedzi\n"
+                "• **FAQ** - baza najczęściej zadawanych pytań\n"
+                "• **Analiza sentymentu** - ocena opinii klientów\n\n"
+                "Przykład: *\"Napisz odpowiedź na reklamację klienta\"*"
+            ),
+        }
+
+        if domain and domain in capabilities:
+            return capabilities[domain]
+
+        # General overview
+        return (
+            "**Oto co mogę dla Ciebie zrobić:** 🚀\n\n"
+            "📱 **Marketing**\n"
+            "Posty social media, teksty reklamowe, kampanie\n\n"
+            "💰 **Finanse**\n"
+            "Faktury, analizy cashflow, budżetowanie\n\n"
+            "👥 **HR**\n"
+            "Ogłoszenia o pracę, rekrutacja, onboarding\n\n"
+            "⚖️ **Prawo**\n"
+            "Umowy, regulaminy, RODO\n\n"
+            "🎯 **Sprzedaż**\n"
+            "Oferty, lead scoring, follow-upy\n\n"
+            "🎧 **Obsługa klienta**\n"
+            "Odpowiedzi na zgłoszenia, FAQ\n\n"
+            "💡 Zapytaj np. *\"co możesz zrobić w kwestii marketingu?\"* "
+            "żeby poznać szczegóły danego obszaru."
+        )
 
     def _build_unknown_response(self) -> str:
         """Build response for unknown intent."""
