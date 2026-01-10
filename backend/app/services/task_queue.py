@@ -10,7 +10,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from app.core.config import settings
 from app.services.agents.marketing.instagram import generate_instagram_post
 from app.services.agents.marketing.copywriter import generate_marketing_copy
-from app.services.agents.finance.invoice import generate_invoice_draft, analyze_cashflow
+from app.services.agents.finance.invoice import generate_invoice_draft
+from app.services.agents.finance.cashflow import analyze_cashflow
 from app.services.agents.brand_context import build_brand_context, get_fallback_context
 from app.services.agents.tools.image_generator import image_service
 
