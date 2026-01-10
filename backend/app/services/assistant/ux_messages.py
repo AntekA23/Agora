@@ -384,12 +384,6 @@ class UXHelper:
 
                 lines.append(f"• {param_labels[key]}: {display_value}")
 
-        lines.extend([
-            "",
-            "---",
-            "✅ **Wykonaj** | ✏️ **Zmień** | ❌ **Anuluj**",
-        ])
-
         return "\n".join(lines)
 
     @staticmethod

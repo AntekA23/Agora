@@ -65,7 +65,8 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
 
   const handleAction = async (actionId: string) => {
     if (actionId === "execute" || actionId === "confirm") {
-      await executeTasks.mutateAsync();
+      // Send confirmation message to trigger state machine execution
+      await sendMessage.mutateAsync("tak");
     } else if (actionId === "view_tasks") {
       router.push("/tasks");
     } else if (actionId === "modify") {
@@ -73,10 +74,10 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
       textareaRef.current?.focus();
     } else if (actionId === "cancel") {
       // User wants to cancel
-      await sendMessage.mutateAsync("[Anuluj]");
+      await sendMessage.mutateAsync("anuluj");
     } else if (actionId === "undo") {
       // User wants to undo last action
-      await sendMessage.mutateAsync("[Cofnij]");
+      await sendMessage.mutateAsync("cofnij");
     } else if (actionId === "use_defaults") {
       // User wants to skip recommended questions - use defaults
       await sendMessage.mutateAsync("[Użyj domyślnych]");
