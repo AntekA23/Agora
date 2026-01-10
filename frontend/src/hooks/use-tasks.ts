@@ -27,6 +27,16 @@ export function useTasks(filters: TaskFilters = {}) {
   return useQuery({
     queryKey: ["tasks", filters],
     queryFn: () => api.get<TaskListResponse>(endpoint),
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      // Poll every 3 seconds if there are pending/processing tasks
+      if (data?.tasks?.some(t => t.status === "pending" || t.status === "processing")) {
+        return 3000;
+      }
+      return false;
+    },
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 }
 

@@ -361,6 +361,37 @@ async def process_publications(ctx: dict) -> dict:
     return await worker.process_scheduled_publications()
 
 
+async def cleanup_stuck_tasks(ctx: dict) -> dict:
+    """Mark stuck processing tasks as failed.
+
+    Tasks that have been in 'processing' status for more than 5 minutes
+    are considered stuck and will be marked as failed.
+    """
+    from datetime import timedelta
+
+    db = await get_mongodb()
+    timeout_threshold = datetime.utcnow() - timedelta(minutes=5)
+
+    result = await db.tasks.update_many(
+        {
+            "status": "processing",
+            "updated_at": {"$lt": timeout_threshold}
+        },
+        {
+            "$set": {
+                "status": "failed",
+                "error": "Task timeout - processing took too long. Please try again.",
+                "updated_at": datetime.utcnow(),
+            }
+        }
+    )
+
+    if result.modified_count > 0:
+        print(f"Cleaned up {result.modified_count} stuck tasks")
+
+    return {"cleaned_up": result.modified_count}
+
+
 class WorkerSettings:
     """ARQ Worker settings."""
 
@@ -371,6 +402,7 @@ class WorkerSettings:
         process_cashflow_task,
         process_schedule_rules,
         process_publications,
+        cleanup_stuck_tasks,
     ]
 
     # Cron jobs for periodic tasks
@@ -379,6 +411,8 @@ class WorkerSettings:
         cron(process_schedule_rules, hour=None, minute=0),
         # Run publication worker every minute
         cron(process_publications, minute=None),
+        # Cleanup stuck tasks every 5 minutes
+        cron(cleanup_stuck_tasks, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
     ]
 
     @staticmethod
