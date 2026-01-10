@@ -30,13 +30,14 @@ export function useTasks(filters: TaskFilters = {}) {
     refetchOnMount: "always", // ALWAYS fetch when component mounts or page is visited
     refetchOnWindowFocus: true,
     staleTime: 0,
+    // Always poll - faster when there are active tasks, slower otherwise
     refetchInterval: (query) => {
       const data = query.state.data;
-      // Poll every 2 seconds if there are pending/processing tasks
-      if (data?.tasks?.some(t => t.status === "pending" || t.status === "processing")) {
-        return 2000;
-      }
-      return false;
+      const hasActiveTasks = data?.tasks?.some(
+        (t) => t.status === "pending" || t.status === "processing"
+      );
+      // 2 seconds for active tasks, 5 seconds idle (to catch new tasks)
+      return hasActiveTasks ? 2000 : 5000;
     },
   });
 }
@@ -46,12 +47,14 @@ export function useTask(taskId: string | null) {
     queryKey: ["task", taskId],
     queryFn: () => api.get<Task>(`/tasks/${taskId}`),
     enabled: !!taskId,
+    staleTime: 0,
+    // Always poll for non-terminal statuses, stop when completed/failed
     refetchInterval: (query) => {
       const data = query.state.data;
-      if (data && (data.status === "pending" || data.status === "processing")) {
-        return 2000; // Poll every 2 seconds while processing
+      if (data && (data.status === "completed" || data.status === "failed")) {
+        return false; // Stop polling when terminal
       }
-      return false;
+      return 2000; // Poll every 2 seconds until terminal
     },
   });
 }

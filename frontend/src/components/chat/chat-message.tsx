@@ -3,17 +3,14 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   User,
   Bot,
-  CheckCircle,
-  Loader2,
-  AlertCircle,
   Copy,
   Check,
 } from "lucide-react";
 import type { Message } from "@/hooks/use-conversations";
+import { TaskStatusIndicator } from "./task-status-indicator";
 
 interface ChatMessageProps {
   message: Message;
@@ -29,19 +26,6 @@ export function ChatMessage({ message, onAction }: ChatMessageProps) {
     await navigator.clipboard.writeText(message.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const getTaskStatusIcon = () => {
-    switch (message.task_status) {
-      case "completed":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case "processing":
-        return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
-      case "failed":
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />;
-    }
   };
 
   return (
@@ -84,18 +68,12 @@ export function ChatMessage({ message, onAction }: ChatMessageProps) {
         {/* Message content with line breaks preserved */}
         <div className="text-sm whitespace-pre-wrap">{message.content}</div>
 
-        {/* Task status indicator */}
+        {/* Task status indicator - fetches live status */}
         {message.task_id && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            {getTaskStatusIcon()}
-            <span>
-              {message.task_status === "completed"
-                ? "Zadanie zakończone"
-                : message.task_status === "failed"
-                ? "Błąd zadania"
-                : "Przetwarzanie..."}
-            </span>
-          </div>
+          <TaskStatusIndicator
+            taskId={message.task_id}
+            initialStatus={message.task_status}
+          />
         )}
 
         {/* Action buttons */}

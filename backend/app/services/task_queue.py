@@ -50,9 +50,25 @@ async def process_instagram_task(ctx: dict, task_id: str, task_input: dict[str, 
         # Fallback values for backward compatibility
         brand_voice, target_audience = get_fallback_context(company_settings)
 
-        # Generate content with memory and brand context
+        brief = task_input.get("brief", "")
+
+        # Start image generation in PARALLEL with content generation
+        # This saves ~20 seconds by not waiting for agents to finish first
+        image_task = None
+        if settings.TOGETHER_API_KEY and brief:
+            # Use brief directly for image prompt (agents will refine content separately)
+            image_prompt = f"{brief}, professional social media photography, instagram aesthetic, high quality"
+            print(f"Starting parallel image generation for: {image_prompt[:80]}...")
+            image_task = asyncio.create_task(
+                image_service.generate_post_image(
+                    description=image_prompt,
+                    platform="instagram",
+                )
+            )
+
+        # Generate content with memory and brand context (runs while image generates)
         result = await generate_instagram_post(
-            brief=task_input.get("brief", ""),
+            brief=brief,
             brand_voice=brand_voice,
             target_audience=target_audience,
             language=company_settings.get("language", "pl"),
@@ -62,18 +78,13 @@ async def process_instagram_task(ctx: dict, task_id: str, task_input: dict[str, 
             brand_context=brand_context,
         )
 
-        # Auto-generate image if image_prompt exists
-        image_prompt = result.get("image_prompt", "")
-        if image_prompt and settings.TOGETHER_API_KEY:
+        # Wait for parallel image generation to complete
+        if image_task:
             try:
-                print(f"Generating image for prompt: {image_prompt[:100]}...")
-                image_result = await image_service.generate_post_image(
-                    description=image_prompt,
-                    platform="instagram",
-                )
+                image_result = await image_task
                 result["image_url"] = image_result.get("url")
                 result["image_generated"] = True
-                print(f"Image generated: {result['image_url']}")
+                print(f"Parallel image generation completed: {result['image_url']}")
             except Exception as img_error:
                 print(f"Image generation failed: {img_error}")
                 result["image_error"] = str(img_error)
