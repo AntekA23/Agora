@@ -177,11 +177,21 @@ Wymagania:
 7. Uzywaj preferowanych slow i unikaj slow zabronionych (jesli okreslone w kontekscie)
 8. Zaproponuj najlepszy czas publikacji
 
+WAZNE - OPIS GRAFIKI:
+Grafika bedzie GENEROWANA PRZEZ AI (model obrazkowy), wiec:
+- NIGDY nie sugeruj zrzutow ekranu, interfejsow aplikacji, logo firmy
+- NIGDY nie sugeruj konkretnych zdjec produktow ktorych AI nie zna
+- NIGDY nie sugeruj zdjec prawdziwych osob (celebrytow, pracownikow)
+- ZAMIAST TEGO opisz: abstrakcyjne koncepcje, lifestyle, emocje, metafory wizualne
+- Przyklad ZLY: "zrzut ekranu aplikacji Dario z interfejsem"
+- Przyklad DOBRY: "usmiechniete dziecko podczas zabawy edukacyjnej, ciepłe swiatlo, radosna atmosfera"
+- Opis musi byc w jezyku ANGIELSKIM (dla modelu AI)
+
 Zwroc wynik w formacie:
 - TEKST POSTU: [tekst]
 - HASHTAGI: [hashtagi jesli wymagane]
 - CZAS PUBLIKACJI: [sugerowany czas]
-- OPIS GRAFIKI: [krotki opis jaka grafika pasowałaby do postu]
+- OPIS GRAFIKI: [opis w jezyku angielskim, bez elementow niemozliwych do wygenerowania]
 - WYKORZYSTANE TRENDY: [jakie trendy zostaly wykorzystane]""",
         expected_output="Gotowy post na Instagram z tekstem, hashtagami i sugestiami",
         agent=instagram_specialist,
@@ -199,6 +209,15 @@ Zwroc wynik w formacie:
 6. {'Uzyte zostaly hashtagi firmowe marki' if brand_context and 'Hashtagi firmowe:' in brand_context else 'Hashtagi sa odpowiednie'}
 7. Nie uzyto slow zabronionych (jesli okreslone w kontekscie)
 
+KRYTYCZNE - WERYFIKACJA OPISU GRAFIKI:
+Grafika bedzie generowana przez AI, wiec ODRZUC opisy zawierajace:
+- Zrzuty ekranu, interfejsy aplikacji, dashboardy
+- Logo, nazwy marek widoczne na grafice
+- Konkretne produkty ktorych AI nie zna
+- Prawdziwe osoby (celebryci, pracownicy)
+Jesli opis zawiera takie elementy, PRZEPISZ go na opis mozliwy do wygenerowania.
+Opis MUSI byc po angielsku.
+
 Jesli wszystko jest OK, zatwierdz content.
 Jesli cos wymaga poprawy, wprowadz korekty.
 
@@ -206,7 +225,7 @@ Zwroc finalny, zatwierdzony content w formacie:
 - TEKST POSTU: [tekst]
 - HASHTAGI: [hashtagi]
 - CZAS PUBLIKACJI: [czas]
-- OPIS GRAFIKI: [opis]""",
+- OPIS GRAFIKI: [opis po angielsku, bez niemozliwych elementow]""",
         expected_output="Zatwierdzony post gotowy do publikacji",
         agent=marketing_manager,
         context=[research_task, create_content_task],
