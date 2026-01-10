@@ -107,7 +107,7 @@ export function useExecuteTasks(conversationId: string) {
   return useMutation({
     mutationFn: () =>
       api.post<SendMessageResponse>(`/conversations/${conversationId}/execute`, {}),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Update conversation cache
       queryClient.setQueryData<Conversation>(
         ["conversation", conversationId],
@@ -122,7 +122,8 @@ export function useExecuteTasks(conversationId: string) {
         }
       );
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      // Force immediate refetch of tasks list
+      await queryClient.refetchQueries({ queryKey: ["tasks"] });
     },
   });
 }

@@ -27,16 +27,17 @@ export function useTasks(filters: TaskFilters = {}) {
   return useQuery({
     queryKey: ["tasks", filters],
     queryFn: () => api.get<TaskListResponse>(endpoint),
+    refetchOnMount: "always", // ALWAYS fetch when component mounts or page is visited
+    refetchOnWindowFocus: true,
+    staleTime: 0,
     refetchInterval: (query) => {
       const data = query.state.data;
-      // Poll every 3 seconds if there are pending/processing tasks
+      // Poll every 2 seconds if there are pending/processing tasks
       if (data?.tasks?.some(t => t.status === "pending" || t.status === "processing")) {
-        return 3000;
+        return 2000;
       }
       return false;
     },
-    refetchOnWindowFocus: true,
-    staleTime: 0,
   });
 }
 
@@ -61,8 +62,9 @@ export function useCreateInstagramTask() {
   return useMutation({
     mutationFn: (data: InstagramTaskInput) =>
       api.post<Task>("/agents/marketing/instagram", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    onSuccess: async () => {
+      // Force immediate refetch of tasks list
+      await queryClient.refetchQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
@@ -74,8 +76,9 @@ export function useCreateCopywriterTask() {
   return useMutation({
     mutationFn: (data: CopywriterTaskInput) =>
       api.post<Task>("/agents/marketing/copywriter", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    onSuccess: async () => {
+      // Force immediate refetch of tasks list
+      await queryClient.refetchQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
@@ -87,9 +90,10 @@ export function useRetryTask() {
   return useMutation({
     mutationFn: (taskId: string) =>
       api.post<Task>(`/tasks/${taskId}/retry`),
-    onSuccess: (_, taskId) => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["task", taskId] });
+    onSuccess: async (_, taskId) => {
+      // Force immediate refetch
+      await queryClient.refetchQueries({ queryKey: ["tasks"] });
+      await queryClient.refetchQueries({ queryKey: ["task", taskId] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
@@ -100,8 +104,9 @@ export function useDeleteTask() {
 
   return useMutation({
     mutationFn: (taskId: string) => api.delete(`/tasks/${taskId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    onSuccess: async () => {
+      // Force immediate refetch of tasks list
+      await queryClient.refetchQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
