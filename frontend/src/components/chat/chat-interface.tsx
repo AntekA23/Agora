@@ -64,13 +64,19 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   };
 
   const handleAction = async (actionId: string) => {
-    if (actionId === "execute") {
+    if (actionId === "execute" || actionId === "confirm") {
       await executeTasks.mutateAsync();
     } else if (actionId === "view_tasks") {
       router.push("/tasks");
     } else if (actionId === "modify") {
       // Focus input for modification
       textareaRef.current?.focus();
+    } else if (actionId === "cancel") {
+      // User wants to cancel
+      await sendMessage.mutateAsync("[Anuluj]");
+    } else if (actionId === "undo") {
+      // User wants to undo last action
+      await sendMessage.mutateAsync("[Cofnij]");
     } else if (actionId === "use_defaults") {
       // User wants to skip recommended questions - use defaults
       await sendMessage.mutateAsync("[Użyj domyślnych]");
