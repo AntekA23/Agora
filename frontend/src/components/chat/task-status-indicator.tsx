@@ -11,25 +11,25 @@ interface TaskStatusIndicatorProps {
 const statusConfig = {
   pending: {
     icon: Clock,
-    label: "Oczekuje w kolejce...",
+    label: "Oczekujace...",
     className: "text-muted-foreground",
     animate: false,
   },
   processing: {
     icon: Loader2,
-    label: "Przetwarzanie...",
+    label: "W trakcie...",
     className: "text-blue-500",
     animate: true,
   },
   completed: {
     icon: CheckCircle,
-    label: "Zadanie zakonczone",
+    label: "Ukonczone",
     className: "text-green-500",
     animate: false,
   },
   failed: {
     icon: AlertCircle,
-    label: "Blad zadania",
+    label: "Blad",
     className: "text-red-500",
     animate: false,
   },

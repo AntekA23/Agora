@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { Message } from "@/hooks/use-conversations";
 import { TaskStatusIndicator } from "./task-status-indicator";
+import { ChatTaskResult } from "./chat-task-result";
 
 interface ChatMessageProps {
   message: Message;
@@ -70,10 +71,14 @@ export function ChatMessage({ message, onAction }: ChatMessageProps) {
 
         {/* Task status indicator - fetches live status */}
         {message.task_id && (
-          <TaskStatusIndicator
-            taskId={message.task_id}
-            initialStatus={message.task_status}
-          />
+          <>
+            <TaskStatusIndicator
+              taskId={message.task_id}
+              initialStatus={message.task_status}
+            />
+            {/* Show result inline when task completes */}
+            <ChatTaskResult taskId={message.task_id} />
+          </>
         )}
 
         {/* Action buttons */}

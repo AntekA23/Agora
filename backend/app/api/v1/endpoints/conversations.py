@@ -18,6 +18,46 @@ from app.services.task_queue import get_task_queue
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
+def _format_params_preview(params: dict) -> str:
+    """Format extracted parameters for user preview."""
+    if not params:
+        return ""
+
+    # Map param keys to Polish labels
+    labels = {
+        "topic": "Temat",
+        "brief": "Temat",
+        "post_type": "Typ",
+        "platform": "Platforma",
+        "copy_type": "Rodzaj tekstu",
+        "client_name": "Klient",
+        "style": "Styl",
+        "tone": "Ton",
+    }
+
+    # Map param values to Polish
+    value_labels = {
+        "post": "post",
+        "story": "story",
+        "reel": "reel",
+        "carousel": "karuzela",
+        "instagram": "Instagram",
+        "facebook": "Facebook",
+        "linkedin": "LinkedIn",
+        "ad": "reklama",
+        "email": "email",
+        "description": "opis produktu",
+    }
+
+    lines = ["📋 **Parametry:**"]
+    for key, value in params.items():
+        if value and key in labels:
+            display_value = value_labels.get(value, value) if isinstance(value, str) else value
+            lines.append(f"• {labels[key]}: {display_value}")
+
+    return "\n".join(lines) if len(lines) > 1 else ""
+
+
 # ============================================================================
 # REQUEST/RESPONSE SCHEMAS
 # ============================================================================
@@ -306,35 +346,107 @@ async def send_message(
         company_context=company_context,
     )
 
-    # Create assistant message
-    assistant_msg_id = str(ObjectId())
-    assistant_message = {
-        "id": assistant_msg_id,
-        "role": "assistant",
-        "content": response["content"],
-        "message_type": "text",
-        "actions": response.get("actions", []),
-        "created_at": now,
-    }
-
     # Update conversation title if first message
     title = conv.get("title", "Nowa rozmowa")
     if title == "Nowa rozmowa" and len(conv.get("messages", [])) == 0:
         title = conversation_service.generate_title(data.content)
 
-    # Update conversation
-    update_data: dict[str, Any] = {
-        "$push": {"messages": {"$each": [user_message, assistant_message]}},
-        "$set": {
-            "updated_at": now,
-            "last_message_at": now,
-            "title": title,
-            "context.extracted_params": response.get("extracted_params", {}),
-            "context.last_intent": response.get("intent"),
-            "context.can_execute": response.get("can_execute", False),
-            "context.pending_tasks": response.get("tasks_to_create", []),
-        },
-    }
+    created_task_ids: list[str] = []
+    assistant_msg_id = str(ObjectId())
+
+    # AUTO-EXECUTE: If we can execute, create tasks immediately
+    if response.get("can_execute") and response.get("tasks_to_create"):
+        pending_tasks = response.get("tasks_to_create", [])
+
+        # Create tasks
+        for task_info in pending_tasks:
+            task_doc = {
+                "company_id": current_user.company_id,
+                "user_id": current_user.id,
+                "department": task_info.get("department", "marketing"),
+                "agent": task_info.get("agent", ""),
+                "type": task_info.get("type", ""),
+                "input": task_info.get("input", {}),
+                "output": None,
+                "status": "pending",
+                "error": None,
+                "created_at": now,
+                "updated_at": now,
+                "completed_at": None,
+                "conversation_id": conversation_id,
+            }
+
+            result = await db.tasks.insert_one(task_doc)
+            task_id = str(result.inserted_id)
+            created_task_ids.append(task_id)
+
+            # Enqueue task
+            try:
+                pool = await get_task_queue()
+                agent = task_info.get("agent", "")
+                if agent == "instagram_specialist":
+                    await pool.enqueue_job("process_instagram_task", task_id, task_info.get("input", {}))
+                elif agent == "copywriter":
+                    await pool.enqueue_job("process_copywriter_task", task_id, task_info.get("input", {}))
+            except Exception:
+                pass
+
+        # Build response with params preview
+        params = response.get("extracted_params", {})
+        params_preview = _format_params_preview(params)
+
+        content = f"Rozumiem! Zaczynam generowanie.\n\n{params_preview}\n\n⏳ Zadanie w toku..."
+
+        assistant_message = {
+            "id": assistant_msg_id,
+            "role": "assistant",
+            "content": content,
+            "message_type": "task_created",
+            "task_id": created_task_ids[0] if created_task_ids else None,
+            "task_status": "pending",
+            "actions": [],  # No actions needed - auto-executing
+            "created_at": now,
+        }
+
+        # Update conversation - clear pending tasks since we executed
+        update_data: dict[str, Any] = {
+            "$push": {
+                "messages": {"$each": [user_message, assistant_message]},
+                "task_ids": {"$each": created_task_ids},
+            },
+            "$set": {
+                "updated_at": now,
+                "last_message_at": now,
+                "title": title,
+                "context.extracted_params": {},
+                "context.last_intent": response.get("intent"),
+                "context.can_execute": False,
+                "context.pending_tasks": [],
+            },
+        }
+    else:
+        # Normal response - need more info or just chatting
+        assistant_message = {
+            "id": assistant_msg_id,
+            "role": "assistant",
+            "content": response["content"],
+            "message_type": "text",
+            "actions": response.get("actions", []),
+            "created_at": now,
+        }
+
+        update_data = {
+            "$push": {"messages": {"$each": [user_message, assistant_message]}},
+            "$set": {
+                "updated_at": now,
+                "last_message_at": now,
+                "title": title,
+                "context.extracted_params": response.get("extracted_params", {}),
+                "context.last_intent": response.get("intent"),
+                "context.can_execute": response.get("can_execute", False),
+                "context.pending_tasks": response.get("tasks_to_create", []),
+            },
+        }
 
     await db.conversations.update_one(
         {"_id": ObjectId(conversation_id)},
@@ -355,14 +467,14 @@ async def send_message(
         assistant_message=MessageResponse(
             id=assistant_msg_id,
             role="assistant",
-            content=response["content"],
-            message_type="text",
-            actions=response.get("actions", []),
-            task_id=None,
-            task_status=None,
+            content=assistant_message["content"],
+            message_type=assistant_message.get("message_type", "text"),
+            actions=assistant_message.get("actions", []),
+            task_id=created_task_ids[0] if created_task_ids else None,
+            task_status="pending" if created_task_ids else None,
             created_at=now,
         ),
-        tasks_created=[],
+        tasks_created=created_task_ids,
     )
 
 

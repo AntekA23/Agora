@@ -15,8 +15,8 @@ interface TaskListProps {
 }
 
 const statusConfig: Record<TaskStatus, { label: string; variant: "secondary" | "info" | "success" | "destructive" }> = {
-  pending: { label: "Oczekuje", variant: "secondary" },
-  processing: { label: "Przetwarzanie", variant: "info" },
+  pending: { label: "Oczekujace", variant: "secondary" },
+  processing: { label: "W trakcie", variant: "info" },
   completed: { label: "Ukonczone", variant: "success" },
   failed: { label: "Blad", variant: "destructive" },
 };

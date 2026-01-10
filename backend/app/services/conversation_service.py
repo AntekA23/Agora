@@ -105,16 +105,12 @@ class ConversationService:
         params: dict[str, Any],
         company_context: dict[str, Any],
     ) -> dict[str, Any]:
-        """Build response for auto-executable intent."""
-        agents = self.INTENT_AGENTS.get(intent_result.intent, [])
-        agent_names = [self.AGENT_DESCRIPTIONS.get(a, a) for a in agents]
+        """Build response for auto-executable intent.
 
-        if len(agents) == 1:
-            content = f"Świetnie! Przygotuję dla Ciebie {agent_names[0]}."
-        else:
-            content = "Rozumiem! Przygotuję dla Ciebie:\n"
-            for name in agent_names:
-                content += f"✓ {name.capitalize()}\n"
+        Note: With auto-execute enabled, tasks are created immediately
+        by the endpoint, so we don't need action buttons here.
+        """
+        agents = self.INTENT_AGENTS.get(intent_result.intent, [])
 
         # Build task creation info
         tasks_to_create = []
@@ -123,12 +119,13 @@ class ConversationService:
             if task_info:
                 tasks_to_create.append(task_info)
 
+        # Content will be replaced by endpoint with params preview
+        # This is just a fallback
+        content = "Rozumiem! Zaczynam generowanie..."
+
         return {
             "content": content,
-            "actions": [
-                {"id": "execute", "label": "Generuj", "type": "primary"},
-                {"id": "modify", "label": "Zmień parametry", "type": "secondary"},
-            ],
+            "actions": [],  # No actions - auto-execute handles this
             "tasks_to_create": tasks_to_create,
             "follow_up_questions": [],
             "intent": intent_result.intent.value,
