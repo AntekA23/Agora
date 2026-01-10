@@ -165,6 +165,7 @@ export default function MarketingPage() {
                 {stats.weekly_trend.map((day, idx) => {
                   const height = (day.count / maxTrend) * 100;
                   const dayName = new Date(day.date).toLocaleDateString("pl-PL", {
+                    timeZone: "Europe/Warsaw",
                     weekday: "short",
                   });
                   return (

@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { format } from "date-fns";
 import { pl } from "date-fns/locale";
+import { formatDatePL, formatDateOnlyPL } from "@/lib/utils";
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -100,7 +100,7 @@ export function ScheduleDialog({
         firstLine.slice(0, 50) + (firstLine.length > 50 ? "..." : "");
       setTitle(
         generated ||
-          `${contentTypeLabels[contentType]} - ${new Date().toLocaleDateString("pl-PL")}`
+          `${contentTypeLabels[contentType]} - ${formatDateOnlyPL(new Date())}`
       );
     }
   }, [open, content, contentType, title]);
@@ -191,8 +191,13 @@ export function ScheduleDialog({
   }, []);
 
   const formatSuggestionDate = (isoString: string) => {
-    const date = new Date(isoString);
-    return format(date, "EEEE, d MMM 'o' HH:mm", { locale: pl });
+    return formatDatePL(isoString, {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   return (
@@ -361,7 +366,7 @@ export function ScheduleDialog({
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {selectedDate ? (
-                              format(selectedDate, "d MMM yyyy", { locale: pl })
+                              formatDatePL(selectedDate, { day: "numeric", month: "short", year: "numeric" })
                             ) : (
                               "Wybierz datę"
                             )}
@@ -420,7 +425,7 @@ export function ScheduleDialog({
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {selectedDate ? (
-                        format(selectedDate, "d MMM yyyy", { locale: pl })
+                        formatDatePL(selectedDate, { day: "numeric", month: "short", year: "numeric" })
                       ) : (
                         "Wybierz datę"
                       )}

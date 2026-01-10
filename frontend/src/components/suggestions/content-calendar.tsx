@@ -99,8 +99,8 @@ export function ContentCalendar({ daysAhead = 30 }: ContentCalendarProps) {
   const formatWeekRange = () => {
     const start = weekDays[0];
     const end = weekDays[6];
-    const startMonth = start.toLocaleDateString("pl-PL", { month: "short" });
-    const endMonth = end.toLocaleDateString("pl-PL", { month: "short" });
+    const startMonth = start.toLocaleDateString("pl-PL", { timeZone: "Europe/Warsaw", month: "short" });
+    const endMonth = end.toLocaleDateString("pl-PL", { timeZone: "Europe/Warsaw", month: "short" });
 
     if (startMonth === endMonth) {
       return `${start.getDate()} - ${end.getDate()} ${startMonth}`;
@@ -220,7 +220,7 @@ export function ContentCalendar({ daysAhead = 30 }: ContentCalendarProps) {
                         const params = new URLSearchParams();
                         params.set(
                           "brief",
-                          `Post na ${date.toLocaleDateString("pl-PL")}`
+                          `Post na ${date.toLocaleDateString("pl-PL", { timeZone: "Europe/Warsaw" })}`
                         );
                         router.push(`/marketing?${params.toString()}`);
                       }}

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Trash2, Eye, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import type { TaskStatus } from "@/types/task";
+import { formatDateTimePL } from "@/lib/utils";
 
 interface TaskListProps {
   onSelectTask?: (taskId: string) => void;
@@ -38,15 +39,6 @@ export function TaskList({ onSelectTask, department }: TaskListProps) {
   });
 
   const deleteTask = useDeleteTask();
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString("pl-PL", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   if (error) {
     return (
@@ -117,7 +109,7 @@ export function TaskList({ onSelectTask, department }: TaskListProps) {
                       {(task.input as { brief?: string }).brief?.slice(0, 60)}...
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {formatDate(task.created_at)}
+                      {formatDateTimePL(task.created_at)}
                     </p>
                   </div>
                   <div className="flex items-center gap-1">

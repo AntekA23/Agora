@@ -2,12 +2,19 @@
 
 This service handles the conversational flow, maintaining context
 and routing to appropriate agents based on the conversation.
+
+Supports two modes:
+1. Legacy mode - uses interpret() directly (backward compatible)
+2. State machine mode - uses AgentState and FlowController for better flow management
 """
 
 from datetime import datetime
 from typing import Any
 
 from app.services.assistant import assistant_router, Intent
+from app.services.assistant.agent_state import AgentState
+from app.services.assistant.flow_controller import flow_controller, FlowResponse
+from app.services.assistant.user_preferences import UserPreferences
 
 
 class ConversationService:
@@ -70,7 +77,11 @@ class ConversationService:
             Response with assistant message, actions, and any tasks to create
         """
         # First, interpret the message using existing assistant
-        intent_result = await assistant_router.interpret(message)
+        # CRITICAL: Pass conversation_context to preserve context across messages
+        intent_result = await assistant_router.interpret(
+            message,
+            conversation_context=conversation_context,
+        )
 
         # Build response based on intent
         response: dict[str, Any] = {
@@ -281,6 +292,92 @@ class ConversationService:
         if len(first_message) > 50:
             title += "..."
         return title
+
+    # =========================================================================
+    # STATE MACHINE BASED PROCESSING (Phase 2)
+    # =========================================================================
+
+    async def process_message_with_state(
+        self,
+        message: str,
+        agent_state: AgentState,
+        conversation_context: dict[str, Any],
+        company_context: dict[str, Any],
+        user_preferences: UserPreferences | None = None,
+    ) -> tuple[dict[str, Any], AgentState]:
+        """Process a message using the state machine flow.
+
+        This is the new Phase 2 implementation that uses AgentState
+        for better conversation flow management.
+
+        Args:
+            message: User's message
+            agent_state: Current agent state (loaded from MongoDB)
+            conversation_context: Previous messages and extracted params
+            company_context: Company info, brand, etc.
+            user_preferences: Learned user preferences for smart defaults
+
+        Returns:
+            Tuple of (response dict, updated AgentState)
+        """
+        # Use the flow controller with preferences
+        flow_response = await flow_controller.process(
+            message=message,
+            agent_state=agent_state,
+            conversation_context=conversation_context,
+            company_context=company_context,
+            user_preferences=user_preferences,
+        )
+
+        # Convert FlowResponse to dict format expected by endpoint
+        response = self._flow_response_to_dict(flow_response)
+
+        # Return both response and updated state
+        return response, flow_response.agent_state or agent_state
+
+    def _flow_response_to_dict(self, flow_response: FlowResponse) -> dict[str, Any]:
+        """Convert FlowResponse to dictionary format.
+
+        Args:
+            flow_response: Response from flow controller
+
+        Returns:
+            Dictionary compatible with existing endpoint
+        """
+        return {
+            "content": flow_response.content,
+            "actions": flow_response.actions,
+            "tasks_to_create": flow_response.tasks_to_create,
+            "follow_up_questions": [],
+            "intent": flow_response.intent,
+            "confidence": flow_response.confidence,
+            "extracted_params": flow_response.extracted_params,
+            "can_execute": flow_response.should_execute,
+            "awaiting_recommendations": (
+                flow_response.agent_state.conversation_stage == "gathering"
+                if flow_response.agent_state
+                else False
+            ),
+        }
+
+    def get_initial_agent_state(self) -> AgentState:
+        """Get a fresh agent state for new conversations.
+
+        Returns:
+            New AgentState in idle stage
+        """
+        return AgentState()
+
+    def load_agent_state(self, state_dict: dict[str, Any] | None) -> AgentState:
+        """Load agent state from MongoDB document.
+
+        Args:
+            state_dict: Dictionary from MongoDB or None
+
+        Returns:
+            AgentState instance
+        """
+        return AgentState.from_dict(state_dict)
 
 
 # Global service instance

@@ -19,8 +19,8 @@ import {
   Trash2,
   Clock,
 } from "lucide-react";
-import { format, addDays } from "date-fns";
-import { pl } from "date-fns/locale";
+import { addDays } from "date-fns";
+import { formatDatePL } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,12 +82,14 @@ export default function BatchGenerationPage() {
   const [variety, setVariety] = React.useState<VarietyLevel>("medium");
   const [autoSchedule, setAutoSchedule] = React.useState(true);
   const [requireApproval, setRequireApproval] = React.useState(false);
-  const [startDate, setStartDate] = React.useState(
-    format(addDays(new Date(), 1), "yyyy-MM-dd")
-  );
-  const [endDate, setEndDate] = React.useState(
-    format(addDays(new Date(), 7), "yyyy-MM-dd")
-  );
+  const [startDate, setStartDate] = React.useState(() => {
+    const date = addDays(new Date(), 1);
+    return date.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = React.useState(() => {
+    const date = addDays(new Date(), 7);
+    return date.toISOString().split("T")[0];
+  });
 
   // Result state
   const [result, setResult] = React.useState<BatchGenerationResponse | null>(null);
@@ -360,8 +362,8 @@ export default function BatchGenerationPage() {
                 {autoSchedule && (
                   <li>
                     <strong>Okres:</strong>{" "}
-                    {format(new Date(startDate), "d MMM", { locale: pl })} -{" "}
-                    {format(new Date(endDate), "d MMM yyyy", { locale: pl })}
+                    {formatDatePL(startDate, { day: "numeric", month: "short" })} -{" "}
+                    {formatDatePL(endDate, { day: "numeric", month: "short", year: "numeric" })}
                   </li>
                 )}
                 <li>
@@ -479,11 +481,14 @@ export default function BatchGenerationPage() {
                           {item.scheduled_for && (
                             <p className="text-sm text-muted-foreground flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              {format(
-                                new Date(item.scheduled_for),
-                                "EEEE, d MMM yyyy HH:mm",
-                                { locale: pl }
-                              )}
+                              {formatDatePL(item.scheduled_for, {
+                                weekday: "long",
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
                             </p>
                           )}
                         </div>

@@ -89,6 +89,8 @@ INTENT_PATTERNS: dict[Intent, list[str]] = {
         r"social\s*media",
         r"stories?|reels?",
         r"publikacj[aę]|opublikuj",
+        # Polish patterns for "create a post about X"
+        r"(stw[oó]rz|napisz|przygotuj|zr[oó]b)\s+post",
     ],
     Intent.MARKETING_COPY: [
         r"copy|kopi",
@@ -430,12 +432,18 @@ class AssistantRouter:
 
         return best_intent, best_score
 
-    def extract_params_from_message(self, message: str, intent: Intent) -> dict[str, Any]:
+    def extract_params_from_message(
+        self,
+        message: str,
+        intent: Intent,
+        is_followup: bool = False,
+    ) -> dict[str, Any]:
         """Extract parameters from the message based on intent.
 
         Args:
             message: User's message
             intent: Detected intent
+            is_followup: If True, this is a response to a question (skip topic extraction)
 
         Returns:
             Dictionary of extracted parameters
@@ -444,14 +452,16 @@ class AssistantRouter:
         message_lower = message.lower()
 
         # Extract topic (general - works for most intents)
-        # Remove intent keywords to get the topic
-        topic = message
-        for patterns in INTENT_PATTERNS.values():
-            for pattern in patterns:
-                topic = re.sub(pattern, "", topic, flags=re.IGNORECASE)
-        topic = topic.strip()
-        if topic and len(topic) > 5:
-            params["topic"] = topic
+        # BUT: Skip topic extraction for short followup responses
+        # to avoid overriding the original topic
+        if not is_followup or len(message.split()) > 10:
+            topic = message
+            for patterns in INTENT_PATTERNS.values():
+                for pattern in patterns:
+                    topic = re.sub(pattern, "", topic, flags=re.IGNORECASE)
+            topic = topic.strip()
+            if topic and len(topic) > 5:
+                params["topic"] = topic
 
         # Extract specific parameters based on intent
         if intent == Intent.SOCIAL_MEDIA_POST:
@@ -590,39 +600,131 @@ class AssistantRouter:
         """
         return DEFAULT_INTENT_PARAMS.get(intent, {}).copy()
 
-    async def interpret(self, message: str) -> IntentResult:
+    def is_followup_response(self, message: str, context: dict | None) -> bool:
+        """Detect if message is a response to a previous question.
+
+        This prevents short responses like "casualowy" from being treated
+        as new requests when we're in the middle of a conversation.
+
+        Args:
+            message: User's message
+            context: Conversation context with state info
+
+        Returns:
+            True if this appears to be a followup response
+        """
+        if not context:
+            return False
+
+        # If we're explicitly awaiting recommendations, it's a followup
+        if context.get("awaiting_recommendations"):
+            return True
+
+        # If we have a pending intent and message is short, likely a followup
+        if context.get("last_intent") and len(message.split()) <= 5:
+            return True
+
+        # Check if message matches known parameter values
+        param_value_patterns = [
+            # Tone values
+            r"^(profesjonalny|casualowy|zabawny|formalny|luźny|poważny)$",
+            # Platform values
+            r"^(instagram|facebook|linkedin|twitter|ig|fb)$",
+            # Audience values
+            r"^(młodzi|dorośli|firmy|wszyscy|b2b|ogólna)$",
+            # Yes/no responses
+            r"^(tak|nie|ok|dobrze|jasne|zgoda)$",
+        ]
+
+        message_lower = message.lower().strip()
+        for pattern in param_value_patterns:
+            if re.match(pattern, message_lower):
+                return True
+
+        return False
+
+    async def interpret(
+        self,
+        message: str,
+        conversation_context: dict | None = None,
+    ) -> IntentResult:
         """Interpret user message and return routing information.
+
+        Supports conversation context to maintain state across messages.
+        When user is responding to a question, preserves the original intent.
 
         Args:
             message: User's natural language request
+            conversation_context: Optional context with:
+                - messages: Previous messages
+                - extracted_params: Already extracted parameters
+                - last_intent: Previously detected intent
+                - awaiting_recommendations: Whether we asked for more info
 
         Returns:
             IntentResult with detected intent and routing info
         """
-        # Step 1: Pattern-based intent detection
-        intent, confidence = self.detect_intent_from_patterns(message)
+        context = conversation_context or {}
 
-        # Step 2: If low confidence, could use LLM for better detection
-        # (keeping simple for now - pattern matching is fast and accurate)
-        if confidence < 0.3:
+        # Step 0: Check if this is a followup response
+        is_followup = self.is_followup_response(message, context)
+
+        if is_followup and context.get("last_intent"):
+            # PRESERVE CONTEXT: Use the previous intent instead of detecting new one
+            try:
+                intent = Intent(context["last_intent"])
+                confidence = 1.0  # High confidence since we're continuing
+            except ValueError:
+                # Fallback to pattern detection if intent is invalid
+                intent, confidence = self.detect_intent_from_patterns(message)
+                is_followup = False
+        else:
+            # Step 1: Pattern-based intent detection for new requests
+            intent, confidence = self.detect_intent_from_patterns(message)
+
+        # Step 2: If low confidence and not a followup, could use LLM
+        if confidence < 0.3 and not is_followup:
             # TODO: Use LLM for ambiguous cases
             pass
 
         # Step 3: Extract parameters from message
-        extracted_params = self.extract_params_from_message(message, intent)
+        # For followup responses, skip topic extraction to avoid overwriting
+        extracted_params = self.extract_params_from_message(
+            message, intent, is_followup=is_followup
+        )
 
-        # Step 4: Determine missing required info
+        # Step 4: Merge with existing params from context
+        if context.get("extracted_params"):
+            # Existing params + new params (new params take priority for non-topic)
+            merged_params = {**context["extracted_params"]}
+            for key, value in extracted_params.items():
+                # Don't let short followup responses override topic
+                if key == "topic" and is_followup and len(message.split()) <= 10:
+                    continue
+                merged_params[key] = value
+            extracted_params = merged_params
+
+        # Step 5: Determine missing required info
         missing_params = self.get_missing_params(intent, extracted_params)
 
-        # Step 5: Generate follow-up questions for required params
+        # Step 6: Generate follow-up questions for required params
         follow_up_questions = self.get_follow_up_questions(missing_params)
 
-        # Step 6: Determine if we can auto-execute (all required params present)
-        can_auto_execute = len(missing_params) == 0 and confidence >= 0.6
+        # Step 7: Determine if we can auto-execute
+        # For followup responses with context, we can be more lenient
+        if is_followup and context.get("last_intent"):
+            can_auto_execute = len(missing_params) == 0
+        else:
+            can_auto_execute = len(missing_params) == 0 and confidence >= 0.6
 
-        # Step 7: Check recommended params (improve quality but not required)
+        # Step 8: Check recommended params (improve quality but not required)
         recommended_missing = self.get_missing_recommended_params(intent, extracted_params)
         recommended_questions = self.get_recommended_questions(recommended_missing)
+
+        # If we already answered recommendations (followup), don't ask again
+        if context.get("recommendations_answered"):
+            recommended_missing = []
+            recommended_questions = []
 
         return IntentResult(
             intent=intent,

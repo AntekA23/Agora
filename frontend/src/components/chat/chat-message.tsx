@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatTimePL } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   User,
@@ -59,10 +59,7 @@ export function ChatMessage({ message, onAction }: ChatMessageProps) {
             {isUser ? "Ty" : "Agora"}
           </span>
           <span className="text-xs text-muted-foreground">
-            {new Date(message.created_at).toLocaleTimeString("pl-PL", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {formatTimePL(message.created_at)}
           </span>
         </div>
 

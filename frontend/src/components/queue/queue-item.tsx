@@ -1,7 +1,6 @@
 "use client";
 
-import { formatDistanceToNow, format } from "date-fns";
-import { pl } from "date-fns/locale";
+import { formatDatePL } from "@/lib/utils";
 import {
   Instagram,
   Facebook,
@@ -89,18 +88,27 @@ export function QueueItem({
     if (!item.scheduled_for) return "Brak terminu";
     const date = new Date(item.scheduled_for);
     const now = new Date();
-    const diffDays = Math.floor((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Convert to Polish timezone for comparison
+    const dateInPL = new Date(date.toLocaleString("en-US", { timeZone: "Europe/Warsaw" }));
+    const nowInPL = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Warsaw" }));
+
+    const startOfDatePL = new Date(dateInPL.getFullYear(), dateInPL.getMonth(), dateInPL.getDate());
+    const startOfNowPL = new Date(nowInPL.getFullYear(), nowInPL.getMonth(), nowInPL.getDate());
+
+    const diffDays = Math.floor((startOfDatePL.getTime() - startOfNowPL.getTime()) / (1000 * 60 * 60 * 24));
+    const timeStr = formatDatePL(date, { hour: "2-digit", minute: "2-digit" });
 
     if (diffDays < 0) {
-      return format(date, "d MMM yyyy, HH:mm", { locale: pl });
+      return formatDatePL(date, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
     } else if (diffDays === 0) {
-      return `Dziś o ${format(date, "HH:mm")}`;
+      return `Dziś o ${timeStr}`;
     } else if (diffDays === 1) {
-      return `Jutro o ${format(date, "HH:mm")}`;
+      return `Jutro o ${timeStr}`;
     } else if (diffDays < 7) {
-      return format(date, "EEEE, HH:mm", { locale: pl });
+      return formatDatePL(date, { weekday: "long", hour: "2-digit", minute: "2-digit" });
     } else {
-      return format(date, "d MMM, HH:mm", { locale: pl });
+      return formatDatePL(date, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
     }
   };
 

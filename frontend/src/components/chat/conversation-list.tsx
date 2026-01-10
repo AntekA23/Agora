@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeDatePL } from "@/lib/utils";
 import {
   useConversations,
   useCreateConversation,
@@ -52,30 +52,6 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
     }
   };
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "";
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffDays === 0) {
-      return date.toLocaleTimeString("pl-PL", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } else if (diffDays === 1) {
-      return "Wczoraj";
-    } else if (diffDays < 7) {
-      return `${diffDays} dni temu`;
-    } else {
-      return date.toLocaleDateString("pl-PL", {
-        day: "numeric",
-        month: "short",
-      });
-    }
-  };
-
   return (
     <div className="flex flex-col h-full">
       {/* New conversation button */}
@@ -121,7 +97,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{conv.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {formatDate(conv.last_message_at || conv.created_at)}
+                    {formatRelativeDatePL(conv.last_message_at || conv.created_at)}
                     {conv.message_count > 0 && ` • ${conv.message_count} wiad.`}
                   </p>
                 </div>

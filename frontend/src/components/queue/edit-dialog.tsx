@@ -1,9 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { format } from "date-fns";
-import { pl } from "date-fns/locale";
 import { CalendarIcon, Loader2, Save } from "lucide-react";
+import { formatDatePL } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -83,7 +82,8 @@ export function EditDialog({
       if (item.scheduled_for) {
         const date = new Date(item.scheduled_for);
         setScheduledDate(date);
-        setScheduledTime(format(date, "HH:mm"));
+        // Extract time in Polish timezone
+        setScheduledTime(formatDatePL(date, { hour: "2-digit", minute: "2-digit" }));
       } else {
         setScheduledDate(undefined);
         setScheduledTime("12:00");
@@ -197,7 +197,7 @@ export function EditDialog({
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {scheduledDate ? (
-                      format(scheduledDate, "d MMM yyyy", { locale: pl })
+                      formatDatePL(scheduledDate, { day: "numeric", month: "short", year: "numeric" })
                     ) : (
                       <span>Wybierz datę</span>
                     )}

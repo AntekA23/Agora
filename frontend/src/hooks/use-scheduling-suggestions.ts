@@ -44,10 +44,11 @@ export function formatConfidence(confidence: number): string {
   return `${Math.round(confidence * 100)}%`;
 }
 
-// Helper function to format suggestion time
+// Helper function to format suggestion time in Polish timezone
 export function formatSuggestionTime(isoString: string, locale: string = "pl-PL"): string {
   const date = new Date(isoString);
   return date.toLocaleString(locale, {
+    timeZone: "Europe/Warsaw",
     weekday: "long",
     day: "numeric",
     month: "short",

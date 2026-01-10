@@ -15,6 +15,8 @@ from app.api.deps import CurrentUser, Database
 from app.services.conversation_service import conversation_service
 from app.services.task_queue import get_task_queue
 from app.services.assistant.router import assistant_router
+from app.services.assistant.agent_state import AgentState
+from app.services.assistant.user_preferences import UserPreferences, PreferencesService
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -89,6 +91,10 @@ class MessageInput(BaseModel):
         min_length=1,
         max_length=2000,
         description="Treść wiadomości",
+    )
+    use_state_machine: bool = Field(
+        default=True,
+        description="Use Phase 2 state machine flow (recommended)",
     )
 
 
@@ -298,6 +304,178 @@ async def get_conversation(
     )
 
 
+async def _process_with_state_machine(
+    conv: dict,
+    message: str,
+    user_message: dict,
+    company_context: dict,
+    current_user: Any,
+    db: Any,
+    conversation_id: str,
+) -> SendMessageResponse:
+    """Process message using the Phase 2 state machine flow.
+
+    Args:
+        conv: Conversation document from MongoDB
+        message: User's message content
+        user_message: Pre-built user message dict
+        company_context: Company info
+        current_user: Current user
+        db: Database connection
+        conversation_id: Conversation ID
+
+    Returns:
+        SendMessageResponse
+    """
+    now = datetime.utcnow()
+    context = conv.get("context", {})
+
+    # Load or create agent state
+    agent_state = AgentState.from_dict(conv.get("agent_state"))
+
+    # Load user preferences for smart defaults (Phase 3)
+    prefs_service = PreferencesService(db)
+    user_preferences = await prefs_service.get_preferences(current_user.company_id)
+
+    # Build conversation context
+    conversation_context = {
+        "messages": conv.get("messages", [])[-10:],
+        "extracted_params": context.get("extracted_params", {}),
+        "last_intent": context.get("last_intent"),
+    }
+
+    # Process with state machine and preferences
+    response, updated_state = await conversation_service.process_message_with_state(
+        message=message,
+        agent_state=agent_state,
+        conversation_context=conversation_context,
+        company_context=company_context,
+        user_preferences=user_preferences,
+    )
+
+    # Update conversation title if first message
+    title = conv.get("title", "Nowa rozmowa")
+    if title == "Nowa rozmowa" and len(conv.get("messages", [])) == 0:
+        title = conversation_service.generate_title(message)
+
+    created_task_ids: list[str] = []
+    assistant_msg_id = str(ObjectId())
+
+    # Handle task execution if ready
+    if response.get("can_execute") and response.get("tasks_to_create"):
+        for task_info in response.get("tasks_to_create", []):
+            task_doc = {
+                "company_id": current_user.company_id,
+                "user_id": current_user.id,
+                "department": task_info.get("department", "marketing"),
+                "agent": task_info.get("agent", ""),
+                "type": task_info.get("type", ""),
+                "input": task_info.get("input", {}),
+                "output": None,
+                "status": "pending",
+                "error": None,
+                "created_at": now,
+                "updated_at": now,
+                "completed_at": None,
+                "conversation_id": conversation_id,
+            }
+
+            result = await db.tasks.insert_one(task_doc)
+            task_id = str(result.inserted_id)
+            created_task_ids.append(task_id)
+
+            # Enqueue task
+            try:
+                pool = await get_task_queue()
+                agent = task_info.get("agent", "")
+                if agent == "instagram_specialist":
+                    await pool.enqueue_job("process_instagram_task", task_id, task_info.get("input", {}))
+                elif agent == "copywriter":
+                    await pool.enqueue_job("process_copywriter_task", task_id, task_info.get("input", {}))
+            except Exception:
+                pass
+
+        # Update agent state to executing
+        updated_state.task_ids = created_task_ids
+        updated_state.transition("confirmed")
+
+        # Record task completion to learn user preferences (Phase 3)
+        params = response.get("extracted_params", {})
+        if params:
+            await prefs_service.record_task_completion(current_user.company_id, params)
+
+        assistant_message = {
+            "id": assistant_msg_id,
+            "role": "assistant",
+            "content": response["content"],
+            "message_type": "task_created",
+            "task_id": created_task_ids[0] if created_task_ids else None,
+            "task_status": "pending",
+            "actions": [],
+            "created_at": now,
+        }
+    else:
+        # Normal response - gathering info or confirming
+        assistant_message = {
+            "id": assistant_msg_id,
+            "role": "assistant",
+            "content": response["content"],
+            "message_type": "text",
+            "actions": response.get("actions", []),
+            "created_at": now,
+        }
+
+    # Update conversation with new state
+    update_data: dict[str, Any] = {
+        "$push": {
+            "messages": {"$each": [user_message, assistant_message]},
+        },
+        "$set": {
+            "updated_at": now,
+            "last_message_at": now,
+            "title": title,
+            # Save agent state to MongoDB
+            "agent_state": updated_state.to_dict(),
+            # Also update legacy context for compatibility
+            "context.extracted_params": response.get("extracted_params", {}),
+            "context.last_intent": response.get("intent"),
+            "context.awaiting_recommendations": response.get("awaiting_recommendations", False),
+        },
+    }
+
+    if created_task_ids:
+        update_data["$push"]["task_ids"] = {"$each": created_task_ids}
+
+    await db.conversations.update_one(
+        {"_id": ObjectId(conversation_id)},
+        update_data,
+    )
+
+    return SendMessageResponse(
+        user_message=MessageResponse(
+            id=user_message["id"],
+            role="user",
+            content=message,
+            message_type="text",
+            actions=[],
+            task_id=None,
+            task_status=None,
+            created_at=now,
+        ),
+        assistant_message=MessageResponse(
+            id=assistant_msg_id,
+            role="assistant",
+            content=assistant_message["content"],
+            message_type=assistant_message.get("message_type", "text"),
+            actions=assistant_message.get("actions", []),
+            task_id=created_task_ids[0] if created_task_ids else None,
+            task_status="pending" if created_task_ids else None,
+            created_at=now,
+        ),
+        tasks_created=created_task_ids,
+    )
+
+
 @router.post(
     "/{conversation_id}/messages",
     response_model=SendMessageResponse,
@@ -351,16 +529,32 @@ async def send_message(
         "created_at": now,
     }
 
+    # Use state machine flow (Phase 2) if enabled
+    if data.use_state_machine:
+        return await _process_with_state_machine(
+            conv=conv,
+            message=data.content,
+            user_message=user_message,
+            company_context=company_context,
+            current_user=current_user,
+            db=db,
+            conversation_id=conversation_id,
+        )
+
+    # Legacy flow (Phase 1) - kept for backward compatibility
     # Build conversation context from previous messages
+    # CRITICAL: Include all fields needed by interpret() for context preservation
     context = conv.get("context", {})
+    awaiting_recommendations = context.get("awaiting_recommendations", False)
+
     conversation_context = {
         "messages": conv.get("messages", [])[-10:],  # Last 10 messages
         "extracted_params": context.get("extracted_params", {}),
         "recommendations_answered": context.get("recommendations_answered", False),
+        # CRITICAL for followup detection in interpret():
+        "last_intent": context.get("last_intent"),
+        "awaiting_recommendations": awaiting_recommendations,
     }
-
-    # Check if we were awaiting recommendations
-    awaiting_recommendations = context.get("awaiting_recommendations", False)
 
     # Check if user clicked "use_defaults" button
     use_defaults = data.content.strip().lower() in ["[użyj domyślnych]", "użyj domyślnych"]
@@ -369,9 +563,10 @@ async def send_message(
         # User is responding to recommendation questions
         conversation_context["recommendations_answered"] = True
 
+        last_intent = context.get("last_intent")
+
         if use_defaults:
             # User wants to skip recommendations - apply defaults
-            last_intent = context.get("last_intent")
             if last_intent:
                 from app.services.assistant import Intent
                 try:
@@ -384,6 +579,28 @@ async def send_message(
                     }
                 except ValueError:
                     pass
+        else:
+            # User provided actual answer - extract params from their response
+            if last_intent:
+                from app.services.assistant import Intent
+                try:
+                    intent_enum = Intent(last_intent)
+                    # Extract new params from user's response (e.g., "casualowy")
+                    # Pass is_followup=True to skip topic extraction for short responses
+                    new_params = assistant_router.extract_params_from_message(
+                        data.content, intent_enum, is_followup=True
+                    )
+                    # Merge with existing params - user's response takes priority
+                    conversation_context["extracted_params"] = {
+                        **conversation_context["extracted_params"],
+                        **new_params,
+                    }
+                except ValueError:
+                    pass
+
+        # CRITICAL: Tell conversation service to preserve the original intent
+        conversation_context["preserve_intent"] = True
+        conversation_context["original_intent"] = last_intent
 
     # Process message with conversation service
     response = await conversation_service.process_message(
@@ -391,6 +608,43 @@ async def send_message(
         conversation_context=conversation_context,
         company_context=company_context,
     )
+
+    # QUICK FIX: If we were awaiting recommendations and interpreter lost context,
+    # restore it from conversation context
+    if awaiting_recommendations and not use_defaults:
+        last_intent = context.get("last_intent")
+        if last_intent:
+            # Check if interpret() lost the context (low confidence or unknown intent)
+            response_intent = response.get("intent", "unknown")
+            response_confidence = response.get("confidence", 0)
+
+            if response_intent == "unknown" or response_confidence < 0.5:
+                from app.services.assistant import Intent
+
+                # Restore original intent and merged params
+                response["intent"] = last_intent
+                response["extracted_params"] = conversation_context["extracted_params"]
+                response["can_execute"] = True  # We have all we need
+                response["awaiting_recommendations"] = False
+
+                # Build tasks to create based on restored intent
+                try:
+                    intent_enum = Intent(last_intent)
+                    # Create a mock IntentResult-like object
+                    class MockIntentResult:
+                        def __init__(self, intent, confidence):
+                            self.intent = intent
+                            self.confidence = confidence
+
+                    mock_result = MockIntentResult(intent_enum, 1.0)
+                    exec_response = conversation_service._build_execution_response(
+                        mock_result,
+                        response["extracted_params"],
+                        company_context,
+                    )
+                    response["tasks_to_create"] = exec_response.get("tasks_to_create", [])
+                except (ValueError, Exception):
+                    response["tasks_to_create"] = []
 
     # Update conversation title if first message
     title = conv.get("title", "Nowa rozmowa")

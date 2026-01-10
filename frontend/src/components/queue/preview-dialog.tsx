@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { format } from "date-fns";
-import { pl } from "date-fns/locale";
+import { formatDatePL } from "@/lib/utils";
 import {
   Instagram,
   Facebook,
@@ -204,8 +203,12 @@ export function PreviewDialog({
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Zaplanowano:</span>
                   <span>
-                    {format(new Date(item.scheduled_for), "d MMM yyyy, HH:mm", {
-                      locale: pl,
+                    {formatDatePL(item.scheduled_for, {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
                     })}
                   </span>
                 </div>
@@ -216,8 +219,12 @@ export function PreviewDialog({
                   <Check className="h-4 w-4 text-green-500" />
                   <span className="text-muted-foreground">Opublikowano:</span>
                   <span>
-                    {format(new Date(item.published_at), "d MMM yyyy, HH:mm", {
-                      locale: pl,
+                    {formatDatePL(item.published_at, {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
                     })}
                   </span>
                 </div>
@@ -229,8 +236,12 @@ export function PreviewDialog({
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Utworzono:</span>
                 <span>
-                  {format(new Date(item.created_at), "d MMM yyyy, HH:mm", {
-                    locale: pl,
+                  {formatDatePL(item.created_at, {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
                   })}
                 </span>
               </div>
