@@ -214,6 +214,22 @@ async def review_contract(
 
     concerns_text = "\n".join(f"- {c}" for c in (key_concerns or []))
 
+    # Prepare conditional sections for the prompt (avoid backslash in f-strings)
+    b2c_check_text = "Czy są klauzule niedozwolone? (Art. 385¹-385³ KC)" if is_b2c else ""
+    b2c_withdrawal_text = "Prawo odstąpienia 14 dni (Art. 27 UPK)" if is_b2c else ""
+
+    abusive_clauses_section = ""
+    if is_b2c:
+        abusive_clauses_section = '''
+            "abusive_clauses": [
+                {
+                    "clause_text": "tekst klauzuli",
+                    "why_abusive": "dlaczego niedozwolona",
+                    "legal_basis": "Art. 385³ pkt X KC",
+                    "similar_uokik": "podobna klauzula z rejestru UOKiK (jeśli jest)"
+                }
+            ],'''
+
     legal_analyst = Agent(
         role="Polski Prawnik - Specjalista od Umów",
         goal="Analizować umowy pod kątem zgodności z polskim prawem i identyfikować ryzyka",
@@ -272,7 +288,7 @@ async def review_contract(
         2. ZGODNOŚĆ Z POLSKIM PRAWEM
            - Czy umowa spełnia wymogi formalne?
            - Czy są klauzule sprzeczne z ustawą? (Art. 58 KC)
-           - {"Czy są klauzule niedozwolone? (Art. 385¹-385³ KC)" if is_b2c else ""}
+           - {b2c_check_text}
 
         3. ANALIZA KLUCZOWYCH POSTANOWIEŃ
            - Wynagrodzenie/cena (czy określone prawidłowo?)
@@ -289,7 +305,7 @@ async def review_contract(
         5. TERMINY USTAWOWE DO SPRAWDZENIA
            - Przedawnienie roszczeń
            - Terminy wypowiedzenia
-           - {"Prawo odstąpienia 14 dni (Art. 27 UPK)" if is_b2c else ""}
+           - {b2c_withdrawal_text}
 
         6. REKOMENDACJE
            - Co zmienić (z podstawą prawną)
@@ -318,14 +334,7 @@ async def review_contract(
                     }}
                 ]
             }},
-            {"\"abusive_clauses\": [" + '''
-                {{
-                    "clause_text": "tekst klauzuli",
-                    "why_abusive": "dlaczego niedozwolona",
-                    "legal_basis": "Art. 385³ pkt X KC",
-                    "similar_uokik": "podobna klauzula z rejestru UOKiK (jeśli jest)"
-                }}
-            ],''' if is_b2c else ""}
+            {abusive_clauses_section}
             "risk_assessment": {{
                 "overall_risk": "low/medium/high",
                 "risk_score": 1-10,
