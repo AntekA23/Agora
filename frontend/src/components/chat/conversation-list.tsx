@@ -71,7 +71,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
       </div>
 
       {/* Conversations list */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -86,7 +86,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
               <div
                 key={conv.id}
                 className={cn(
-                  "group flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors",
+                  "group flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors overflow-hidden",
                   selectedId === conv.id
                     ? "bg-primary/10 text-primary"
                     : "hover:bg-muted"
@@ -94,11 +94,11 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
                 onClick={() => onSelect(conv.id)}
               >
                 <MessageSquare className="h-4 w-4 shrink-0" />
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <p className="text-sm font-medium truncate">{conv.title}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground truncate">
                     {formatRelativeDatePL(conv.last_message_at || conv.created_at)}
-                    {conv.message_count > 0 && ` • ${conv.message_count} wiad.`}
+                    {conv.message_count > 0 && ` • ${conv.message_count}`}
                   </p>
                 </div>
                 <DropdownMenu>
@@ -106,13 +106,13 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                      className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <MoreVertical className="h-4 w-4" />
+                      <MoreVertical className="h-3.5 w-3.5" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="end" side="right">
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
                       onClick={(e) => handleDelete(conv.id, e as unknown as React.MouseEvent)}

@@ -65,7 +65,7 @@ export default function ChatPage() {
   return (
     <div className="flex h-[calc(100vh-120px)] -mx-6 -mt-6">
       {/* Desktop sidebar */}
-      <div className="hidden md:flex w-64 border-r bg-muted/30 flex-col">
+      <div className="hidden md:flex w-72 border-r bg-muted/30 flex-col overflow-hidden">
         <ConversationList
           selectedId={selectedId}
           onSelect={handleSelectConversation}
