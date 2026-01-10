@@ -36,6 +36,8 @@ interface TaskOutput {
   suggested_time?: string;
   image_prompt?: string;
   image_url?: string;
+  image_generated?: boolean;
+  image_error?: string;
   total_gross?: number;
   total_net?: number;
   vat?: number;
@@ -274,15 +276,34 @@ export function TaskResult({ taskId, onClose }: TaskResultProps) {
                 <span className="font-medium text-sm">twoja_firma</span>
               </div>
 
-              {/* Image placeholder */}
-              {output.image_prompt && (
-                <div className="aspect-square bg-muted flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                  <Image className="h-12 w-12" />
-                  <p className="text-xs text-center px-4">
-                    {output.image_url ? "Grafika wygenerowana" : "Opis grafiki do wygenerowania"}
-                  </p>
+              {/* Image or placeholder */}
+              {output.image_url ? (
+                <div className="aspect-square bg-muted relative overflow-hidden">
+                  <img
+                    src={output.image_url}
+                    alt="Wygenerowana grafika"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
                 </div>
-              )}
+              ) : output.image_prompt ? (
+                <div className="aspect-square bg-muted flex flex-col items-center justify-center gap-3 text-muted-foreground p-4">
+                  <Image className="h-12 w-12" />
+                  <div className="text-center space-y-1">
+                    <p className="text-xs font-medium">
+                      {output.image_error ? "Nie udało się wygenerować grafiki" : "Grafika nie została wygenerowana"}
+                    </p>
+                    {output.image_error && (
+                      <p className="text-xs text-destructive">{output.image_error}</p>
+                    )}
+                    {!output.image_error && !output.image_generated && (
+                      <p className="text-xs opacity-70">Brak klucza API Together.ai</p>
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
               {/* Post text */}
               <div className="p-4 space-y-3">

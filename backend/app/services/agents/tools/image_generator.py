@@ -1,4 +1,4 @@
-"""Image Generator tool using Together.ai Nano Banana Pro (Gemini 3 Pro Image) for creating visuals."""
+"""Image Generator tool using Together.ai FLUX for creating visuals."""
 
 import base64
 import httpx
@@ -11,14 +11,14 @@ from app.core.config import settings
 
 
 class ImageGeneratorTool(BaseTool):
-    """Tool for generating images using Nano Banana Pro (Gemini 3 Pro Image).
+    """Tool for generating images using FLUX.
 
     Creates professional images for social media posts,
-    marketing materials, and other visual content with SOTA text rendering.
+    marketing materials, and other visual content.
     """
 
     name: str = "image_generator"
-    description: str = """Generuje obrazy za pomoca Nano Banana Pro (Gemini). Uzyj tego narzedzia gdy potrzebujesz:
+    description: str = """Generuje obrazy za pomoca FLUX. Uzyj tego narzedzia gdy potrzebujesz:
     - Grafiki do posta na social media
     - Obrazu do kampanii marketingowej
     - Wizualizacji produktu lub uslugi
@@ -46,7 +46,7 @@ class ImageGeneratorTool(BaseTool):
                 prompt=self._enhance_prompt(prompt),
                 width=1024,
                 height=1024,
-                steps=28,
+                steps=4,
                 n=1,
             )
 
@@ -144,7 +144,7 @@ class SocialMediaImageTool(BaseTool):
                 prompt=enhanced_prompt,
                 width=width,
                 height=height,
-                steps=28,
+                steps=4,
                 n=1,
             )
 
@@ -165,7 +165,7 @@ Wskazowka: Pobierz obraz i dostosuj do wymagan platformy jesli potrzeba."""
 
 
 class ImageService:
-    """Service for image generation operations using Nano Banana Pro (Gemini 3 Pro Image)."""
+    """Service for image generation operations using Together.ai FLUX."""
 
     def __init__(self):
         self.client = None
@@ -177,9 +177,9 @@ class ImageService:
         prompt: str,
         width: int = 1024,
         height: int = 1024,
-        steps: int = 28,
+        steps: int = 4,
     ) -> dict:
-        """Generate image with Nano Banana Pro (Gemini 3 Pro Image)."""
+        """Generate image with FLUX."""
         if not self.client:
             raise ValueError("Together.ai API key not configured")
 
