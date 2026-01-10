@@ -15,11 +15,13 @@
       "Bash(python:*)",
       "Bash(pip install:*)",
       "Bash(npm run build:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(powershell -Command \"cd ''C:\\\\Users\\\\Marcin\\\\Desktop\\\\Agora\\\\frontend''; npx tsc --noEmit 2>&1 | Select-Object -First 50\")",
+      "Bash(powershell -Command \"cd ''C:\\\\Users\\\\Marcin\\\\Desktop\\\\Agora\\\\frontend''; npm run build 2>&1 | Select-Object -First 80\")"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "tavily"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

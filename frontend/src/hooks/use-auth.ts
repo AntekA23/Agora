@@ -13,11 +13,12 @@ interface AuthState {
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => void;
   fetchUser: () => Promise<void>;
+  refreshToken: () => Promise<boolean>;
 }
 
 export const useAuth = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       isLoading: false,
       isAuthenticated: false,
@@ -70,9 +71,28 @@ export const useAuth = create<AuthState>()(
           const user = await api.get<User>("/auth/me");
           set({ user, isAuthenticated: true, isLoading: false });
         } catch {
-          localStorage.removeItem("access_token");
-          localStorage.removeItem("refresh_token");
-          set({ user: null, isAuthenticated: false, isLoading: false });
+          // API client sam obsłuży 401 i spróbuje refresh
+          // Jeśli się nie uda, tokeny zostaną usunięte przez API client
+          const hasToken = localStorage.getItem("access_token");
+          if (!hasToken) {
+            set({ user: null, isAuthenticated: false, isLoading: false });
+          } else {
+            // Token nadal istnieje - może to być inny błąd
+            set({ isLoading: false });
+          }
+        }
+      },
+
+      refreshToken: async () => {
+        try {
+          const success = await api.refreshToken();
+          if (!success) {
+            get().logout();
+          }
+          return success;
+        } catch {
+          get().logout();
+          return false;
         }
       },
     }),

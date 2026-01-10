@@ -81,6 +81,36 @@ class PricePositioning(str, Enum):
     LUXURY = "luxury"
 
 
+class InvoiceSettings(BaseModel):
+    """Company invoice/billing settings."""
+
+    # Dane sprzedawcy (wymagane do faktur)
+    seller_name: str = ""  # Nazwa firmy do faktury
+    seller_address: str = ""  # Adres siedziby
+    seller_nip: str = ""  # NIP
+    seller_email: str = ""  # Email kontaktowy
+    seller_phone: str = ""  # Telefon
+
+    # Dane bankowe
+    bank_name: str = ""
+    bank_account: str = ""  # Numer konta IBAN
+
+    # Ustawienia faktur
+    invoice_prefix: str = "FV"  # Prefix numeracji (np. FV, FA)
+    invoice_numbering: str = "yearly"  # yearly (FV/1/2024) lub monthly (FV/1/01/2024)
+    default_vat_rate: int = 23  # Domyslna stawka VAT
+    default_payment_days: int = 14  # Domyslny termin platnosci
+
+    # Ostatni numer faktury w danym okresie
+    last_invoice_number: int = 0
+    last_invoice_year: int = 0
+    last_invoice_month: int = 0
+
+    # Dodatkowe
+    invoice_notes: str = ""  # Domyslne uwagi na fakturze
+    invoice_footer: str = ""  # Stopka faktury
+
+
 class Subscription(BaseModel):
     """Subscription information."""
 
@@ -198,3 +228,6 @@ class Company(MongoBaseModel):
 
     # Knowledge base for AI agents
     knowledge: CompanyKnowledge = Field(default_factory=CompanyKnowledge)
+
+    # Invoice settings
+    invoice_settings: InvoiceSettings = Field(default_factory=InvoiceSettings)

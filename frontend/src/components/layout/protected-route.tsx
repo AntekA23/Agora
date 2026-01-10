@@ -3,11 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { useTokenRefresh } from "@/hooks/use-token-refresh";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, fetchUser } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
+
+  // Proaktywne odświeżanie tokenu przed wygaśnięciem
+  useTokenRefresh();
 
   useEffect(() => {
     const checkAuth = async () => {
