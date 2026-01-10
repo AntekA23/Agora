@@ -86,7 +86,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
               <div
                 key={conv.id}
                 className={cn(
-                  "group flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors overflow-hidden",
+                  "group relative flex items-center gap-2 p-2 pr-8 rounded-lg cursor-pointer transition-colors",
                   selectedId === conv.id
                     ? "bg-primary/10 text-primary"
                     : "hover:bg-muted"
@@ -94,7 +94,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
                 onClick={() => onSelect(conv.id)}
               >
                 <MessageSquare className="h-4 w-4 shrink-0" />
-                <div className="flex-1 min-w-0 overflow-hidden">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{conv.title}</p>
                   <p className="text-xs text-muted-foreground truncate">
                     {formatRelativeDatePL(conv.last_message_at || conv.created_at)}
@@ -106,13 +106,13 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <MoreVertical className="h-3.5 w-3.5" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" side="right">
+                  <DropdownMenuContent align="end">
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
                       onClick={(e) => handleDelete(conv.id, e as unknown as React.MouseEvent)}
