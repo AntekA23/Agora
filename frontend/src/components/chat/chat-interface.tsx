@@ -71,6 +71,9 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     } else if (actionId === "modify") {
       // Focus input for modification
       textareaRef.current?.focus();
+    } else if (actionId === "use_defaults") {
+      // User wants to skip recommended questions - use defaults
+      await sendMessage.mutateAsync("[Użyj domyślnych]");
     }
   };
 

@@ -11,7 +11,13 @@ from app.services.assistant import assistant_router, Intent
 
 
 class ConversationService:
-    """Service for managing multi-turn conversations with AI agents."""
+    """Service for managing multi-turn conversations with AI agents.
+
+    Implements intelligent follow-up questions flow:
+    1. Check required params - block execution if missing
+    2. Check recommended params - ask before execution to improve quality
+    3. Allow "use defaults" to skip recommended questions
+    """
 
     # Agent descriptions for the assistant
     AGENT_DESCRIPTIONS = {
@@ -84,13 +90,24 @@ class ConversationService:
         }
         response["extracted_params"] = merged_params
 
+        # Check if recommendations were already answered in this conversation
+        recommendations_answered = conversation_context.get("recommendations_answered", False)
+
         # If we have enough info to auto-execute
         if intent_result.can_auto_execute:
-            response = self._build_execution_response(
-                intent_result, merged_params, company_context
-            )
+            # Check if we should ask for recommended params first
+            if intent_result.recommended_missing and not recommendations_answered:
+                # Ask for recommended params before executing
+                response = self._build_recommendation_response(
+                    intent_result, merged_params
+                )
+            else:
+                # Proceed with execution
+                response = self._build_execution_response(
+                    intent_result, merged_params, company_context
+                )
         elif intent_result.follow_up_questions:
-            # Need more info
+            # Need more info (required params missing)
             response["content"] = self._build_follow_up_response(intent_result)
             response["follow_up_questions"] = intent_result.follow_up_questions
         else:
@@ -169,6 +186,38 @@ class ConversationService:
 
         return "Opowiedz mi więcej o tym, czego potrzebujesz."
 
+    def _build_recommendation_response(
+        self,
+        intent_result: Any,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Build response asking for recommended params before executing.
+
+        This improves result quality by gathering additional context.
+        User can skip by clicking "Use defaults" button.
+        """
+        questions = intent_result.recommended_questions
+
+        content = "Chcę stworzyć najlepszy wynik! Doprecyzuj:\n\n"
+        for q in questions:
+            content += f"• {q}\n"
+        content += "\nMożesz też użyć domyślnych ustawień."
+
+        return {
+            "content": content,
+            "actions": [
+                {"id": "use_defaults", "label": "Użyj domyślnych", "type": "secondary"},
+            ],
+            "tasks_to_create": [],  # Don't create tasks yet
+            "follow_up_questions": [],
+            "intent": intent_result.intent.value,
+            "confidence": intent_result.confidence,
+            "extracted_params": params,
+            "can_execute": False,  # Not yet - waiting for user input
+            "awaiting_recommendations": True,  # Flag for the frontend
+            "recommended_missing": intent_result.recommended_missing,
+        }
+
     def _build_task_info(
         self,
         agent: str,
@@ -184,6 +233,10 @@ class ConversationService:
                     "brief": params.get("topic", params.get("brief", "")),
                     "post_type": params.get("post_type", "post"),
                     "include_hashtags": True,
+                    # Recommended params that improve quality
+                    "platform": params.get("platform", "instagram"),
+                    "tone": params.get("tone", "profesjonalny"),
+                    "target_audience": params.get("target_audience", "ogólna"),
                 },
             },
             "copywriter": {
@@ -192,6 +245,9 @@ class ConversationService:
                 "input_mapping": {
                     "brief": params.get("topic", params.get("brief", "")),
                     "copy_type": params.get("copy_type", "ad"),
+                    # Recommended params that improve quality
+                    "tone": params.get("tone", "profesjonalny"),
+                    "target_audience": params.get("target_audience", "ogólna"),
                 },
             },
             "invoice_specialist": {
@@ -200,6 +256,9 @@ class ConversationService:
                 "input_mapping": {
                     "client_name": params.get("client_name", ""),
                     "items": params.get("items", []),
+                    # Recommended params
+                    "due_date": params.get("due_date", "14 dni"),
+                    "payment_terms": params.get("payment_terms", "przelew"),
                 },
             },
         }

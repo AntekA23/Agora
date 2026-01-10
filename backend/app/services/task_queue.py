@@ -47,10 +47,18 @@ async def process_instagram_task(ctx: dict, task_id: str, task_input: dict[str, 
             agent_type="instagram",
         )
 
-        # Fallback values for backward compatibility
-        brand_voice, target_audience = get_fallback_context(company_settings)
+        # Get values from task_input (from conversation), fallback to company settings
+        default_brand_voice, default_target_audience = get_fallback_context(company_settings)
+
+        # Use tone from conversation if provided, otherwise use company brand voice
+        tone = task_input.get("tone")
+        brand_voice = tone if tone else default_brand_voice
+
+        # Use target_audience from conversation if provided, otherwise use company default
+        target_audience = task_input.get("target_audience") or default_target_audience
 
         brief = task_input.get("brief", "")
+        platform = task_input.get("platform", "instagram")
 
         # Start image generation in PARALLEL with content generation
         # This saves ~20 seconds by not waiting for agents to finish first
@@ -62,7 +70,7 @@ async def process_instagram_task(ctx: dict, task_id: str, task_input: dict[str, 
             image_task = asyncio.create_task(
                 image_service.generate_post_image(
                     description=image_prompt,
-                    platform="instagram",
+                    platform=platform,
                 )
             )
 
@@ -77,6 +85,13 @@ async def process_instagram_task(ctx: dict, task_id: str, task_input: dict[str, 
             company_id=task["company_id"],
             brand_context=brand_context,
         )
+
+        # Store the params used for transparency
+        result["params_used"] = {
+            "tone": brand_voice,
+            "target_audience": target_audience,
+            "platform": platform,
+        }
 
         # Wait for parallel image generation to complete
         if image_task:
@@ -143,8 +158,15 @@ async def process_copywriter_task(ctx: dict, task_id: str, task_input: dict[str,
             agent_type="copywriter",
         )
 
-        # Fallback values for backward compatibility
-        brand_voice, target_audience = get_fallback_context(company_settings)
+        # Get values from task_input (from conversation), fallback to company settings
+        default_brand_voice, default_target_audience = get_fallback_context(company_settings)
+
+        # Use tone from conversation if provided, otherwise use company brand voice
+        tone = task_input.get("tone")
+        brand_voice = tone if tone else default_brand_voice
+
+        # Use target_audience from conversation if provided, otherwise use company default
+        target_audience = task_input.get("target_audience") or default_target_audience
 
         result = await generate_marketing_copy(
             brief=task_input.get("brief", ""),
@@ -156,6 +178,12 @@ async def process_copywriter_task(ctx: dict, task_id: str, task_input: dict[str,
             company_id=task["company_id"],
             brand_context=brand_context,
         )
+
+        # Store the params used for transparency
+        result["params_used"] = {
+            "tone": brand_voice,
+            "target_audience": target_audience,
+        }
 
         await db.tasks.update_one(
             {"_id": ObjectId(task_id)},

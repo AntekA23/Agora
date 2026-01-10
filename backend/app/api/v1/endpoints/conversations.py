@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import CurrentUser, Database
 from app.services.conversation_service import conversation_service
 from app.services.task_queue import get_task_queue
+from app.services.assistant.router import assistant_router
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -33,6 +34,15 @@ def _format_params_preview(params: dict) -> str:
         "client_name": "Klient",
         "style": "Styl",
         "tone": "Ton",
+        "target_audience": "Grupa docelowa",
+        "campaign_goal": "Cel kampanii",
+        "salary_range": "Wynagrodzenie",
+        "location": "Lokalizacja",
+        "remote_option": "Praca zdalna",
+        "due_date": "Termin płatności",
+        "payment_terms": "Warunki płatności",
+        "key_benefits": "Główne korzyści",
+        "urgency": "Pilność",
     }
 
     # Map param values to Polish
@@ -47,6 +57,14 @@ def _format_params_preview(params: dict) -> str:
         "ad": "reklama",
         "email": "email",
         "description": "opis produktu",
+        "profesjonalny": "profesjonalny",
+        "casualowy": "casualowy",
+        "zabawny": "zabawny",
+        "formalny": "formalny",
+        "ogólna": "ogólna",
+        "młodzi": "młodzi",
+        "dorośli": "dorośli",
+        "firmy": "firmy",
     }
 
     lines = ["📋 **Parametry:**"]
@@ -334,10 +352,38 @@ async def send_message(
     }
 
     # Build conversation context from previous messages
+    context = conv.get("context", {})
     conversation_context = {
         "messages": conv.get("messages", [])[-10:],  # Last 10 messages
-        "extracted_params": conv.get("context", {}).get("extracted_params", {}),
+        "extracted_params": context.get("extracted_params", {}),
+        "recommendations_answered": context.get("recommendations_answered", False),
     }
+
+    # Check if we were awaiting recommendations
+    awaiting_recommendations = context.get("awaiting_recommendations", False)
+
+    # Check if user clicked "use_defaults" button
+    use_defaults = data.content.strip().lower() in ["[użyj domyślnych]", "użyj domyślnych"]
+
+    if awaiting_recommendations:
+        # User is responding to recommendation questions
+        conversation_context["recommendations_answered"] = True
+
+        if use_defaults:
+            # User wants to skip recommendations - apply defaults
+            last_intent = context.get("last_intent")
+            if last_intent:
+                from app.services.assistant import Intent
+                try:
+                    intent_enum = Intent(last_intent)
+                    default_params = assistant_router.get_default_params(intent_enum)
+                    # Merge defaults with existing params
+                    conversation_context["extracted_params"] = {
+                        **conversation_context["extracted_params"],
+                        **default_params,
+                    }
+                except ValueError:
+                    pass
 
     # Process message with conversation service
     response = await conversation_service.process_message(
@@ -435,6 +481,13 @@ async def send_message(
             "created_at": now,
         }
 
+        # If response is awaiting recommendations, save flag
+        # If we previously answered, keep that flag True
+        recommendations_answered = (
+            conversation_context.get("recommendations_answered", False)
+            or (awaiting_recommendations and not response.get("awaiting_recommendations", False))
+        )
+
         update_data = {
             "$push": {"messages": {"$each": [user_message, assistant_message]}},
             "$set": {
@@ -445,6 +498,8 @@ async def send_message(
                 "context.last_intent": response.get("intent"),
                 "context.can_execute": response.get("can_execute", False),
                 "context.pending_tasks": response.get("tasks_to_create", []),
+                "context.awaiting_recommendations": response.get("awaiting_recommendations", False),
+                "context.recommendations_answered": recommendations_answered,
             },
         }
 

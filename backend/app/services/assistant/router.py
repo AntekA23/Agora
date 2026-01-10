@@ -75,6 +75,9 @@ class IntentResult:
     can_auto_execute: bool
     extracted_params: dict = field(default_factory=dict)
     quick_action_id: str | None = None
+    # New: recommended params that improve quality but aren't required
+    recommended_missing: list[str] = field(default_factory=list)
+    recommended_questions: list[str] = field(default_factory=list)
 
 
 # Keyword patterns for intent detection
@@ -270,6 +273,67 @@ PARAM_QUESTIONS: dict[str, str] = {
     "feedback_text": "Wklej tekst opinii do analizy",
 }
 
+# Recommended parameters - improve quality but not strictly required
+INTENT_RECOMMENDED_PARAMS: dict[Intent, list[str]] = {
+    Intent.SOCIAL_MEDIA_POST: ["platform", "tone", "target_audience"],
+    Intent.MARKETING_COPY: ["tone", "target_audience"],
+    Intent.CAMPAIGN: ["tone", "target_audience", "campaign_goal"],
+    Intent.JOB_POSTING: ["salary_range", "location", "remote_option"],
+    Intent.INVOICE: ["due_date", "payment_terms"],
+    Intent.SALES_PROPOSAL: ["tone", "key_benefits"],
+    Intent.FOLLOWUP_EMAIL: ["tone", "urgency"],
+}
+
+# Questions for recommended params
+RECOMMENDED_PARAM_QUESTIONS: dict[str, str] = {
+    "platform": "Na jaką platformę? (Instagram/Facebook/LinkedIn)",
+    "tone": "Jaki styl/ton? (profesjonalny/casualowy/zabawny/formalny)",
+    "target_audience": "Dla jakiej grupy docelowej? (młodzi/dorośli/firmy/wszyscy)",
+    "campaign_goal": "Jaki cel kampanii? (sprzedaż/świadomość/zaangażowanie)",
+    "salary_range": "Jaki przedział wynagrodzenia?",
+    "location": "Jaka lokalizacja pracy?",
+    "remote_option": "Czy możliwa praca zdalna? (tak/nie/hybrydowa)",
+    "due_date": "Jaki termin płatności?",
+    "payment_terms": "Jakie warunki płatności?",
+    "key_benefits": "Jakie główne korzyści podkreślić?",
+    "urgency": "Jak pilna jest sprawa? (pilna/normalna/niska)",
+}
+
+# Default values for recommended params (when user skips)
+DEFAULT_INTENT_PARAMS: dict[Intent, dict[str, Any]] = {
+    Intent.SOCIAL_MEDIA_POST: {
+        "platform": "instagram",
+        "tone": "profesjonalny",
+        "target_audience": "ogólna",
+    },
+    Intent.MARKETING_COPY: {
+        "tone": "profesjonalny",
+        "target_audience": "ogólna",
+    },
+    Intent.CAMPAIGN: {
+        "tone": "profesjonalny",
+        "target_audience": "ogólna",
+        "campaign_goal": "zaangażowanie",
+    },
+    Intent.JOB_POSTING: {
+        "salary_range": "do uzgodnienia",
+        "location": "Polska",
+        "remote_option": "hybrydowa",
+    },
+    Intent.INVOICE: {
+        "due_date": "14 dni",
+        "payment_terms": "przelew",
+    },
+    Intent.SALES_PROPOSAL: {
+        "tone": "profesjonalny",
+        "key_benefits": "",
+    },
+    Intent.FOLLOWUP_EMAIL: {
+        "tone": "przyjazny",
+        "urgency": "normalna",
+    },
+}
+
 
 # Quick actions for Command Center
 QUICK_ACTIONS: list[QuickAction] = [
@@ -427,6 +491,36 @@ class AssistantRouter:
             else:
                 params["campaign_type"] = "social_media"
 
+        # Extract recommended params (common across intents)
+        # Tone detection
+        if re.search(r"profesjonaln", message_lower):
+            params["tone"] = "profesjonalny"
+        elif re.search(r"casualow|luźn|nieformalne", message_lower):
+            params["tone"] = "casualowy"
+        elif re.search(r"zabawn|śmieszn|humoryst", message_lower):
+            params["tone"] = "zabawny"
+        elif re.search(r"formaln|oficjaln", message_lower):
+            params["tone"] = "formalny"
+
+        # Target audience detection
+        if re.search(r"młod|młodzie|nastolatk|gen\s*z", message_lower):
+            params["target_audience"] = "młodzi"
+        elif re.search(r"dorosł|senior|starszy", message_lower):
+            params["target_audience"] = "dorośli"
+        elif re.search(r"firm|b2b|biznes|przedsiębiorc", message_lower):
+            params["target_audience"] = "firmy"
+        elif re.search(r"wszystk|ogóln|szerok", message_lower):
+            params["target_audience"] = "ogólna"
+
+        # Platform detection (common)
+        if "platform" not in params:
+            if re.search(r"instagram|insta|ig\b", message_lower):
+                params["platform"] = "instagram"
+            elif re.search(r"facebook|fb\b", message_lower):
+                params["platform"] = "facebook"
+            elif re.search(r"linkedin", message_lower):
+                params["platform"] = "linkedin"
+
         return params
 
     def get_missing_params(self, intent: Intent, extracted_params: dict) -> list[str]:
@@ -461,6 +555,41 @@ class AssistantRouter:
         """
         return [PARAM_QUESTIONS.get(p, f"Podaj: {p}") for p in missing_params]
 
+    def get_missing_recommended_params(self, intent: Intent, extracted_params: dict) -> list[str]:
+        """Get list of missing recommended parameters.
+
+        Args:
+            intent: Detected intent
+            extracted_params: Already extracted parameters
+
+        Returns:
+            List of missing recommended parameter names
+        """
+        recommended = INTENT_RECOMMENDED_PARAMS.get(intent, [])
+        return [p for p in recommended if p not in extracted_params]
+
+    def get_recommended_questions(self, missing_recommended: list[str]) -> list[str]:
+        """Generate questions for missing recommended params.
+
+        Args:
+            missing_recommended: List of missing recommended parameter names
+
+        Returns:
+            List of questions in Polish
+        """
+        return [RECOMMENDED_PARAM_QUESTIONS.get(p, f"Podaj: {p}") for p in missing_recommended]
+
+    def get_default_params(self, intent: Intent) -> dict[str, Any]:
+        """Get default values for recommended params.
+
+        Args:
+            intent: The intent to get defaults for
+
+        Returns:
+            Dictionary of default parameter values
+        """
+        return DEFAULT_INTENT_PARAMS.get(intent, {}).copy()
+
     async def interpret(self, message: str) -> IntentResult:
         """Interpret user message and return routing information.
 
@@ -482,14 +611,18 @@ class AssistantRouter:
         # Step 3: Extract parameters from message
         extracted_params = self.extract_params_from_message(message, intent)
 
-        # Step 4: Determine missing info
+        # Step 4: Determine missing required info
         missing_params = self.get_missing_params(intent, extracted_params)
 
-        # Step 5: Generate follow-up questions
+        # Step 5: Generate follow-up questions for required params
         follow_up_questions = self.get_follow_up_questions(missing_params)
 
-        # Step 6: Determine if we can auto-execute
+        # Step 6: Determine if we can auto-execute (all required params present)
         can_auto_execute = len(missing_params) == 0 and confidence >= 0.6
+
+        # Step 7: Check recommended params (improve quality but not required)
+        recommended_missing = self.get_missing_recommended_params(intent, extracted_params)
+        recommended_questions = self.get_recommended_questions(recommended_missing)
 
         return IntentResult(
             intent=intent,
@@ -499,6 +632,8 @@ class AssistantRouter:
             follow_up_questions=follow_up_questions,
             can_auto_execute=can_auto_execute,
             extracted_params=extracted_params,
+            recommended_missing=recommended_missing,
+            recommended_questions=recommended_questions,
         )
 
     async def interpret_quick_action(self, action_id: str, params: dict = None) -> IntentResult:
