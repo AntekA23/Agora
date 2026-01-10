@@ -2,12 +2,55 @@
 
 import base64
 import httpx
-from together import Together
 
 from crewai.tools import BaseTool
-from pydantic import Field
 
 from app.core.config import settings
+
+
+# Use direct HTTP API instead of SDK to avoid SDK adding unsupported parameters like n=1
+TOGETHER_API_URL = "https://api.together.xyz/v1/images/generations"
+
+
+def _generate_image_http(prompt: str, width: int, height: int) -> dict:
+    """Generate image using direct HTTP API call (avoids SDK adding n=1)."""
+    response = httpx.post(
+        TOGETHER_API_URL,
+        headers={
+            "Authorization": f"Bearer {settings.TOGETHER_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": settings.TOGETHER_IMAGE_MODEL,
+            "prompt": prompt,
+            "width": width,
+            "height": height,
+        },
+        timeout=120.0,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+async def _generate_image_http_async(prompt: str, width: int, height: int) -> dict:
+    """Generate image using async HTTP API call."""
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            TOGETHER_API_URL,
+            headers={
+                "Authorization": f"Bearer {settings.TOGETHER_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": settings.TOGETHER_IMAGE_MODEL,
+                "prompt": prompt,
+                "width": width,
+                "height": height,
+            },
+            timeout=120.0,
+        )
+        response.raise_for_status()
+        return response.json()
 
 
 class ImageGeneratorTool(BaseTool):
@@ -28,28 +71,20 @@ class ImageGeneratorTool(BaseTool):
     Przyklad: "Modern minimalist photo of a coffee cup on wooden table, morning light, professional photography"
     """
 
-    client: Together | None = Field(default=None, exclude=True)
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        if settings.TOGETHER_API_KEY:
-            self.client = Together(api_key=settings.TOGETHER_API_KEY)
-
     def _run(self, prompt: str) -> str:
         """Generate image and return URL."""
-        if not self.client:
+        if not settings.TOGETHER_API_KEY:
             return "Blad: Brak klucza API Together.ai. Skonfiguruj TOGETHER_API_KEY w .env"
 
         try:
-            response = self.client.images.generate(
-                model=settings.TOGETHER_IMAGE_MODEL,
+            response = _generate_image_http(
                 prompt=self._enhance_prompt(prompt),
                 width=1024,
                 height=1024,
             )
 
-            if response.data and len(response.data) > 0:
-                image_url = response.data[0].url
+            if response.get("data") and len(response["data"]) > 0:
+                image_url = response["data"][0].get("url")
 
                 return f"""OBRAZ WYGENEROWANY POMYSLNIE!
 
@@ -93,16 +128,9 @@ class SocialMediaImageTool(BaseTool):
     Przyklad: "Promocja kawy latte, instagram"
     """
 
-    client: Together | None = Field(default=None, exclude=True)
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        if settings.TOGETHER_API_KEY:
-            self.client = Together(api_key=settings.TOGETHER_API_KEY)
-
     def _run(self, input_text: str) -> str:
         """Generate social media optimized image."""
-        if not self.client:
+        if not settings.TOGETHER_API_KEY:
             return "Blad: Brak klucza API Together.ai"
 
         # Parse platform from input
@@ -137,17 +165,16 @@ class SocialMediaImageTool(BaseTool):
         width, height = dimensions.get(platform, (1024, 1024))
 
         try:
-            response = self.client.images.generate(
-                model=settings.TOGETHER_IMAGE_MODEL,
+            response = _generate_image_http(
                 prompt=enhanced_prompt,
                 width=width,
                 height=height,
             )
 
-            if response.data and len(response.data) > 0:
+            if response.get("data") and len(response["data"]) > 0:
                 return f"""OBRAZ DLA {platform.upper()} WYGENEROWANY!
 
-URL: {response.data[0].url}
+URL: {response["data"][0].get("url")}
 
 Platforma: {platform}
 Wymiary: {width}x{height}px
@@ -163,34 +190,28 @@ Wskazowka: Pobierz obraz i dostosuj do wymagan platformy jesli potrzeba."""
 class ImageService:
     """Service for image generation operations using Nano Banana Pro (Gemini 3 Pro Image)."""
 
-    def __init__(self):
-        self.client = None
-        if settings.TOGETHER_API_KEY:
-            self.client = Together(api_key=settings.TOGETHER_API_KEY)
-
     async def generate_image(
         self,
         prompt: str,
         width: int = 1024,
         height: int = 1024,
     ) -> dict:
-        """Generate image with Nano Banana Pro."""
-        if not self.client:
+        """Generate image with Nano Banana Pro using direct HTTP API."""
+        if not settings.TOGETHER_API_KEY:
             raise ValueError("Together.ai API key not configured")
 
-        response = self.client.images.generate(
-            model=settings.TOGETHER_IMAGE_MODEL,
+        response = await _generate_image_http_async(
             prompt=prompt,
             width=width,
             height=height,
         )
 
-        if not response.data or len(response.data) == 0:
+        if not response.get("data") or len(response["data"]) == 0:
             raise ValueError("No image data in response")
 
         return {
-            "url": response.data[0].url,
-            "revised_prompt": prompt,  # Together.ai doesn't revise prompts like DALL-E
+            "url": response["data"][0].get("url"),
+            "revised_prompt": prompt,
             "width": width,
             "height": height,
             "model": settings.TOGETHER_IMAGE_MODEL,
