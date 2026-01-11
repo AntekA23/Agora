@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useCompany, useUpdateCompany } from "@/hooks/use-company";
 import { useWizardStatus } from "@/hooks/use-brand-wizard";
@@ -13,11 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Documentation } from "@/components/documentation";
-import { BrandWizard } from "@/components/brand-wizard";
-import { Loader2, Save, Building2, User, Palette, Book, Settings, Wand2, CheckCircle2, Plug } from "lucide-react";
+import { Loader2, Save, Building2, User, Book, Settings, Wand2, CheckCircle2, Plug, ChevronRight } from "lucide-react";
 import { IntegrationsSettings } from "@/components/settings/integrations-settings";
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { data: company, isLoading } = useCompany();
   const updateCompany = useUpdateCompany();
@@ -28,7 +29,6 @@ export default function SettingsPage() {
   const [targetAudience, setTargetAudience] = useState("");
   const [industry, setIndustry] = useState("");
   const [companySize, setCompanySize] = useState("small");
-  const [wizardOpen, setWizardOpen] = useState(false);
 
   useEffect(() => {
     if (company) {
@@ -49,6 +49,10 @@ export default function SettingsPage() {
         language: "pl",
       },
     });
+  };
+
+  const handleOpenWizard = () => {
+    router.push("/brand-setup");
   };
 
   if (isLoading) {
@@ -115,21 +119,76 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {/* Company Info */}
+            {/* Subscription Info */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  Firma
+                  <Settings className="h-5 w-5" />
+                  Subskrypcja
                 </CardTitle>
-                <CardDescription>Informacje o firmie</CardDescription>
+                <CardDescription>Informacje o planie</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="companyName">Nazwa firmy</Label>
-                  <Input id="companyName" value={company?.name || ""} disabled />
+                  <Label>Plan subskrypcji</Label>
+                  <div>
+                    <Badge variant="outline" className="capitalize">
+                      {company?.subscription_plan || "free"}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Aktywne moduly</Label>
+                  <div className="flex gap-2 flex-wrap">
+                    {company?.enabled_agents?.map((agent) => (
+                      <Badge key={agent} variant="secondary" className="capitalize">
+                        {agent}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Company & Brand Settings - Merged */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5" />
+                      Firma i marka
+                    </CardTitle>
+                    <CardDescription>
+                      Informacje o firmie i ustawienia komunikacji AI
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant={wizardStatus?.wizard_completed ? "outline" : "default"}
+                    onClick={handleOpenWizard}
+                  >
+                    {wizardStatus?.wizard_completed ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Edytuj w kreatorze
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4 mr-2" />
+                        Otworz Kreator Marki
+                      </>
+                    )}
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Quick edit fields */}
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="companyName">Nazwa firmy</Label>
+                    <Input id="companyName" value={company?.name || ""} disabled />
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="industry">Branza</Label>
                     <Input
@@ -140,7 +199,7 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="companySize">Wielkosc</Label>
+                    <Label htmlFor="companySize">Wielkosc firmy</Label>
                     <Select value={companySize} onValueChange={setCompanySize}>
                       <SelectTrigger>
                         <SelectValue placeholder="Wybierz wielkosc" />
@@ -153,105 +212,60 @@ export default function SettingsPage() {
                     </Select>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Plan subskrypcji</Label>
-                  <div>
-                    <Badge variant="outline" className="capitalize">
-                      {company?.subscription_plan || "free"}
-                    </Badge>
+
+                <div className="border-t border-border pt-4">
+                  <h4 className="font-medium mb-4">Podstawowe ustawienia komunikacji</h4>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="brandVoice">Brand voice</Label>
+                      <Textarea
+                        id="brandVoice"
+                        value={brandVoice}
+                        onChange={(e) => setBrandVoice(e.target.value)}
+                        placeholder="Opisz ton komunikacji Twojej marki, np. 'Profesjonalny ale przyjazny, unikamy korporacyjnego jezyka'"
+                        rows={3}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Jak powinna brzmiec komunikacja Twojej firmy?
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="targetAudience">Grupa docelowa</Label>
+                      <Textarea
+                        id="targetAudience"
+                        value={targetAudience}
+                        onChange={(e) => setTargetAudience(e.target.value)}
+                        placeholder="Opisz swojego idealnego klienta, np. 'Kobiety 25-40 lat zainteresowane zdrowym stylem zycia'"
+                        rows={3}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Do kogo kierujesz swoje produkty/uslugi?
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Brand Settings */}
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Palette className="h-5 w-5" />
-                      Ustawienia marki
-                    </CardTitle>
-                    <CardDescription>
-                      Te ustawienia wplywaja na sposob komunikacji agentow AI
-                    </CardDescription>
-                  </div>
+                <div className="flex items-center justify-between pt-2">
+                  <p className="text-sm text-muted-foreground">
+                    Uzyj Kreatora Marki aby skonfigurowac pelny profil firmy
+                  </p>
                   <Button
-                    variant={wizardStatus?.wizard_completed ? "outline" : "default"}
-                    onClick={() => setWizardOpen(true)}
+                    onClick={handleSaveCompany}
+                    disabled={updateCompany.isPending}
                   >
-                    {wizardStatus?.wizard_completed ? (
+                    {updateCompany.isPending ? (
                       <>
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Edytuj profil marki
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Zapisywanie...
                       </>
                     ) : (
                       <>
-                        <Wand2 className="h-4 w-4 mr-2" />
-                        Kreator marki
+                        <Save className="mr-2 h-4 w-4" />
+                        Zapisz zmiany
                       </>
                     )}
                   </Button>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="brandVoice">Brand voice</Label>
-                    <Textarea
-                      id="brandVoice"
-                      value={brandVoice}
-                      onChange={(e) => setBrandVoice(e.target.value)}
-                      placeholder="Opisz ton komunikacji Twojej marki, np. 'Profesjonalny ale przyjazny, unikamy korporacyjnego jezyka'"
-                      rows={3}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Jak powinna brzmiec komunikacja Twojej firmy?
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="targetAudience">Grupa docelowa</Label>
-                    <Textarea
-                      id="targetAudience"
-                      value={targetAudience}
-                      onChange={(e) => setTargetAudience(e.target.value)}
-                      placeholder="Opisz swojego idealnego klienta, np. 'Kobiety 25-40 lat zainteresowane zdrowym stylem zycia'"
-                      rows={3}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Do kogo kierujesz swoje produkty/uslugi?
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Aktywne moduly</Label>
-                  <div className="flex gap-2 flex-wrap">
-                    {company?.enabled_agents?.map((agent) => (
-                      <Badge key={agent} variant="secondary" className="capitalize">
-                        {agent}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handleSaveCompany}
-                  disabled={updateCompany.isPending}
-                >
-                  {updateCompany.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Zapisywanie...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Zapisz zmiany
-                    </>
-                  )}
-                </Button>
 
                 {updateCompany.isSuccess && (
                   <p className="text-sm text-green-600">Zmiany zostaly zapisane!</p>
@@ -269,14 +283,6 @@ export default function SettingsPage() {
           <Documentation />
         </TabsContent>
       </Tabs>
-
-      <BrandWizard
-        open={wizardOpen}
-        onOpenChange={setWizardOpen}
-        onComplete={() => {
-          setWizardOpen(false);
-        }}
-      />
     </div>
   );
 }

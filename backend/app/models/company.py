@@ -26,6 +26,8 @@ class CompanySettings(BaseModel):
     target_audience: str = ""
     language: str = "pl"
     wizard_completed: bool = False  # Whether brand wizard was completed
+    wizard_reminder_dismissed_at: datetime | None = None  # When user dismissed reminder
+    wizard_reminder_snooze_until: datetime | None = None  # Snooze reminder until this date
 
 
 class TargetAudience(BaseModel):

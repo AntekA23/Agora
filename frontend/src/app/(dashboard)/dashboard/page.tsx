@@ -12,6 +12,7 @@ import { QuickActions } from "@/components/quick-actions";
 import { FollowUpDialog } from "@/components/follow-up-dialog";
 import { TemplatePicker, TemplateForm } from "@/components/templates";
 import { SmartNotifications, ContentCalendar } from "@/components/suggestions";
+import { BrandReminderBanner } from "@/components/brand-reminder-banner";
 import {
   CheckCircle,
   Clock,
@@ -226,6 +227,8 @@ export default function CommandCenterPage() {
 
   return (
     <div className="space-y-8">
+      <BrandReminderBanner />
+
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold">Witaj, {firstName}</h1>
         <p className="text-muted-foreground">Co chcesz dzis zrobic?</p>

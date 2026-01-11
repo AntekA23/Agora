@@ -623,7 +623,7 @@ async def get_wizard_status(
     current_user: CurrentUser,
     db: Database,
 ) -> dict:
-    """Check if brand wizard has been completed."""
+    """Check if brand wizard has been completed and if reminder should be shown."""
     if not current_user.company_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -640,9 +640,67 @@ async def get_wizard_status(
     settings_data = company.get("settings", {})
     knowledge_data = company.get("knowledge", {})
 
+    # Check if reminder should be shown
+    wizard_completed = settings_data.get("wizard_completed", False)
+    reminder_dismissed = settings_data.get("wizard_reminder_dismissed_at") is not None
+    snooze_until = settings_data.get("wizard_reminder_snooze_until")
+    is_snoozed = snooze_until and datetime.fromisoformat(str(snooze_until)) > datetime.utcnow() if snooze_until else False
+
+    show_reminder = not wizard_completed and not reminder_dismissed and not is_snoozed
+
     return {
-        "wizard_completed": settings_data.get("wizard_completed", False),
+        "wizard_completed": wizard_completed,
         "has_description": bool(knowledge_data.get("company_description")),
         "has_products": bool(knowledge_data.get("products")),
         "has_target_audience": bool(knowledge_data.get("target_audience", {}).get("description")),
+        "show_reminder": show_reminder,
+        "reminder_dismissed": reminder_dismissed,
+        "snooze_until": snooze_until,
     }
+
+
+from datetime import timedelta
+from pydantic import BaseModel
+from typing import Literal
+
+
+class WizardReminderRequest(BaseModel):
+    """Request to update wizard reminder preferences."""
+    action: Literal["dismiss", "snooze"]
+    snooze_days: int = 7
+
+
+@router.post("/me/wizard/reminder")
+async def update_wizard_reminder(
+    data: WizardReminderRequest,
+    current_user: CurrentUser,
+    db: Database,
+) -> dict:
+    """Update wizard reminder preferences (dismiss or snooze)."""
+    if not current_user.company_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User has no company",
+        )
+
+    update_data: dict = {"updated_at": datetime.utcnow()}
+
+    if data.action == "dismiss":
+        update_data["settings.wizard_reminder_dismissed_at"] = datetime.utcnow()
+    elif data.action == "snooze":
+        snooze_until = datetime.utcnow() + timedelta(days=data.snooze_days)
+        update_data["settings.wizard_reminder_snooze_until"] = snooze_until
+
+    result = await db.companies.find_one_and_update(
+        {"_id": ObjectId(current_user.company_id)},
+        {"$set": update_data},
+        return_document=True,
+    )
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found",
+        )
+
+    return {"success": True, "action": data.action}

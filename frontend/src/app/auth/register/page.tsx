@@ -38,7 +38,8 @@ export default function RegisterPage() {
 
     try {
       await register({ email, password, name, company_name });
-      router.push("/dashboard");
+      // Redirect to brand setup wizard for new users
+      router.push("/brand-setup");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     }
