@@ -6,8 +6,11 @@ Orchestrates the conversation flow based on AgentState, handling:
 - Confirmation before execution
 - Task execution and results
 
-Now with LLM-powered agents (Phase 4) for better context understanding
-and natural parameter extraction.
+Level 1 Intelligence:
+- LLM-based intent detection (no pattern matching)
+- Long-term memory integration
+- Company knowledge RAG
+- Natural conversation handling
 """
 
 import logging
@@ -34,6 +37,7 @@ from app.services.assistant.ux_messages import (
     ErrorType,
     FeedbackCollector,
 )
+from app.services.assistant.intelligent_agent import intelligent_agent
 
 logger = logging.getLogger(__name__)
 
@@ -187,36 +191,93 @@ class ConversationFlowController:
         context: dict[str, Any],
         prefs: UserPreferences,
     ) -> FlowResponse:
-        """Handle message when in idle state (new request)."""
-        # Interpret the new request
-        intent_result = await self._router.interpret(message, conversation_context=context)
+        """Handle message when in idle state (new request).
 
-        # Handle conversational intents using LLM (no task execution needed)
-        if intent_result.intent in (Intent.GREETING, Intent.HELP, Intent.CAPABILITIES, Intent.UNKNOWN):
-            # Use LLM for intelligent, contextual response
-            response_content = await self._generate_conversational_response(
+        Level 1 Intelligence: Uses LLM for intent detection instead of patterns.
+        """
+        # Get company context for intelligent processing
+        company_context = context.get("company_context", "")
+        conversation_history = context.get("messages", [])
+
+        # Use intelligent agent for LLM-based intent detection
+        try:
+            ai_result = await intelligent_agent.process_message(
                 message=message,
-                intent=intent_result.intent,
-                context=context,
-            )
-            return FlowResponse(
-                content=response_content,
-                agent_state=agent_state,
-                intent=intent_result.intent.value,
-                confidence=intent_result.confidence,
+                conversation_history=conversation_history,
+                company_context=company_context,
             )
 
-        # Legacy fallback for UNKNOWN if LLM fails (should not reach here normally)
-        if intent_result.intent == Intent.UNKNOWN:
-            return FlowResponse(
-                content=self._build_unknown_response(),
-                agent_state=agent_state,
-                intent=intent_result.intent.value,
-                confidence=intent_result.confidence,
-            )
+            # If it's a conversational message (not a task request)
+            if not ai_result.get("is_task"):
+                response_content = ai_result.get("response", "")
+                if not response_content:
+                    response_content = await self._generate_conversational_response(
+                        message=message,
+                        intent=Intent.UNKNOWN,
+                        context=context,
+                    )
+                return FlowResponse(
+                    content=response_content,
+                    agent_state=agent_state,
+                    intent=ai_result.get("intent", "conversational"),
+                    confidence=ai_result.get("confidence", 0.8),
+                )
+
+            # It's a task request - get the intent
+            intent_str = ai_result.get("intent", "unknown")
+            try:
+                detected_intent = Intent(intent_str)
+            except ValueError:
+                detected_intent = Intent.UNKNOWN
+
+            # If still unknown after LLM, provide helpful response
+            if detected_intent == Intent.UNKNOWN:
+                response_content = await self._generate_conversational_response(
+                    message=message,
+                    intent=Intent.UNKNOWN,
+                    context=context,
+                )
+                return FlowResponse(
+                    content=response_content,
+                    agent_state=agent_state,
+                    intent="unknown",
+                    confidence=ai_result.get("confidence", 0.5),
+                )
+
+            # Extract params from LLM result
+            extracted_params = ai_result.get("extracted_params", {})
+            # Clean up None values
+            extracted_params = {k: v for k, v in extracted_params.items() if v is not None}
+
+            # Use old router to get required/recommended params info
+            intent_result = await self._router.interpret(message, conversation_context=context)
+
+            # Merge LLM extracted params with router params
+            initial_params = {**intent_result.extracted_params, **extracted_params}
+
+        except Exception as e:
+            logger.warning(f"Intelligent agent failed, falling back to router: {e}")
+            # Fallback to pattern-based router
+            intent_result = await self._router.interpret(message, conversation_context=context)
+
+            # Handle conversational intents
+            if intent_result.intent in (Intent.GREETING, Intent.HELP, Intent.CAPABILITIES, Intent.UNKNOWN):
+                response_content = await self._generate_conversational_response(
+                    message=message,
+                    intent=intent_result.intent,
+                    context=context,
+                )
+                return FlowResponse(
+                    content=response_content,
+                    agent_state=agent_state,
+                    intent=intent_result.intent.value,
+                    confidence=intent_result.confidence,
+                )
+
+            detected_intent = intent_result.intent
+            initial_params = intent_result.extracted_params.copy()
 
         # Apply smart defaults from user preferences
-        initial_params = intent_result.extracted_params.copy()
         smart_defaults = prefs.get_smart_defaults()
 
         # Only apply defaults for params not already extracted
@@ -224,18 +285,31 @@ class ConversationFlowController:
             if key not in initial_params:
                 initial_params[key] = value
 
-        # Update recommended_missing based on what we already have from preferences
-        missing_recommended = [
-            p for p in intent_result.recommended_missing
-            if p not in initial_params
-        ]
+        # Get missing params from router result (or recalculate)
+        if 'intent_result' in dir():
+            missing_recommended = [
+                p for p in intent_result.recommended_missing
+                if p not in initial_params
+            ]
+            missing_required = intent_result.missing_info
+        else:
+            # Recalculate from router
+            intent_result = await self._router.interpret(message, conversation_context=context)
+            missing_recommended = [
+                p for p in intent_result.recommended_missing
+                if p not in initial_params
+            ]
+            missing_required = [
+                p for p in intent_result.missing_info
+                if p not in initial_params
+            ]
 
         # Start a new task
         agent_state.start_task(
-            task_type=intent_result.intent.value,
+            task_type=detected_intent.value,
             original_request=message,
             initial_params=initial_params,
-            missing_required=intent_result.missing_info,
+            missing_required=missing_required,
             missing_recommended=missing_recommended,
         )
 
@@ -246,8 +320,8 @@ class ConversationFlowController:
                 agent_state,
                 agent_state.missing_required[0],
                 is_required=True,
-                intent=intent_result.intent.value,
-                confidence=intent_result.confidence,
+                intent=detected_intent.value,
+                confidence=ai_result.get("confidence", 0.8) if 'ai_result' in dir() else 0.7,
             )
 
         elif agent_state.missing_recommended:

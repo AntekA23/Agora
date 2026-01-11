@@ -337,11 +337,13 @@ async def _process_with_state_machine(
     prefs_service = PreferencesService(db)
     user_preferences = await prefs_service.get_preferences(current_user.company_id)
 
-    # Build conversation context
+    # Build conversation context with company knowledge for intelligent agent
     conversation_context = {
         "messages": conv.get("messages", [])[-10:],
         "extracted_params": context.get("extracted_params", {}),
         "last_intent": context.get("last_intent"),
+        # Level 1 Intelligence: Include company context for LLM
+        "company_context": company_context.get("formatted", ""),
     }
 
     # Process with state machine and preferences
@@ -507,15 +509,54 @@ async def send_message(
     if not conv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
 
-    # Get company context
+    # Get comprehensive company context for intelligent agent
     company = await db.companies.find_one({"_id": ObjectId(current_user.company_id)})
     company_context = {}
+    company_context_str = ""  # Formatted string for LLM
+
     if company:
         company_context = {
             "name": company.get("name", ""),
             "industry": company.get("industry", ""),
             "knowledge": company.get("knowledge", {}),
         }
+
+        # Build formatted context string for intelligent agent
+        context_parts = []
+        if company.get("name"):
+            context_parts.append(f"Firma: {company['name']}")
+        if company.get("description"):
+            context_parts.append(f"Opis: {company['description']}")
+        if company.get("industry"):
+            context_parts.append(f"Branża: {company['industry']}")
+
+        # Brand settings
+        brand = company.get("brand_settings", {})
+        if brand:
+            if brand.get("tone"):
+                context_parts.append(f"Ton komunikacji: {brand['tone']}")
+            if brand.get("target_audience"):
+                context_parts.append(f"Grupa docelowa: {brand['target_audience']}")
+            if brand.get("values") and isinstance(brand["values"], list):
+                context_parts.append(f"Wartości: {', '.join(brand['values'])}")
+
+        # Knowledge
+        knowledge = company.get("knowledge", {})
+        if knowledge:
+            products = knowledge.get("products", [])
+            if products:
+                product_names = [p.get("name", "") for p in products[:5] if p.get("name")]
+                if product_names:
+                    context_parts.append(f"Produkty: {', '.join(product_names)}")
+
+            services = knowledge.get("services", [])
+            if services:
+                service_names = [s.get("name", "") for s in services[:5] if s.get("name")]
+                if service_names:
+                    context_parts.append(f"Usługi: {', '.join(service_names)}")
+
+        company_context_str = "\n".join(context_parts) if context_parts else ""
+        company_context["formatted"] = company_context_str
 
     now = datetime.utcnow()
 
