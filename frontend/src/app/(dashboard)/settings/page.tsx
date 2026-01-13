@@ -13,8 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Documentation } from "@/components/documentation";
-import { Loader2, Save, Building2, User, Book, Settings, Wand2, CheckCircle2, Plug, ChevronRight } from "lucide-react";
+import { Loader2, Save, Building2, User, Settings, Wand2, CheckCircle2, Plug, ChevronRight } from "lucide-react";
 import { IntegrationsSettings } from "@/components/settings/integrations-settings";
 
 export default function SettingsPage() {
@@ -81,10 +80,6 @@ export default function SettingsPage() {
           <TabsTrigger value="integrations" className="gap-2">
             <Plug className="h-4 w-4" />
             Integracje
-          </TabsTrigger>
-          <TabsTrigger value="documentation" className="gap-2">
-            <Book className="h-4 w-4" />
-            Dokumentacja
           </TabsTrigger>
         </TabsList>
 
@@ -277,10 +272,6 @@ export default function SettingsPage() {
 
         <TabsContent value="integrations">
           <IntegrationsSettings />
-        </TabsContent>
-
-        <TabsContent value="documentation">
-          <Documentation />
         </TabsContent>
       </Tabs>
     </div>
