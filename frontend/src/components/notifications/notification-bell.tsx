@@ -198,7 +198,7 @@ export function NotificationBell() {
               asChild
               onClick={() => setOpen(false)}
             >
-              <Link href="/notifications">Zobacz wszystkie</Link>
+              <Link href="/tasks">Zobacz wszystkie zadania</Link>
             </Button>
           </div>
         )}

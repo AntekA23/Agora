@@ -243,7 +243,7 @@ export function SmartNotifications({
           <Button
             variant="ghost"
             className="w-full text-muted-foreground"
-            onClick={() => router.push("/suggestions")}
+            onClick={() => router.push("/marketing")}
           >
             Zobacz wszystkie ({data.summary.total_suggestions})
             <ChevronRight className="h-4 w-4 ml-1" />

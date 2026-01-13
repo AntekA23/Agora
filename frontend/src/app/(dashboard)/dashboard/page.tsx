@@ -143,28 +143,23 @@ export default function CommandCenterPage() {
   };
 
   const redirectToAgent = (result: InterpretResponse) => {
+    // Routes that have dedicated pages
     const intentRoutes: Record<string, string> = {
       social_media_post: "/marketing",
       marketing_copy: "/marketing",
-      campaign: "/campaigns",
+      campaign: "/marketing",  // Campaigns are part of marketing
       invoice: "/finance",
       cashflow_analysis: "/finance",
-      job_posting: "/hr",
-      interview_questions: "/hr",
-      onboarding: "/hr",
-      sales_proposal: "/sales",
-      lead_scoring: "/sales",
-      followup_email: "/sales",
-      contract_review: "/legal",
-      privacy_policy: "/legal",
-      terms_of_service: "/legal",
-      gdpr_check: "/legal",
-      ticket_response: "/support",
-      faq: "/support",
-      sentiment_analysis: "/support",
     };
 
-    const route = intentRoutes[result.intent] || "/marketing";
+    // Intents that should go to chat (no dedicated page yet)
+    const chatIntents = [
+      "job_posting", "interview_questions", "onboarding",  // HR
+      "sales_proposal", "lead_scoring", "followup_email",  // Sales
+      "contract_review", "privacy_policy", "terms_of_service", "gdpr_check",  // Legal
+      "ticket_response", "faq", "sentiment_analysis",  // Support
+    ];
+
     const params = new URLSearchParams();
 
     if (result.extracted_params.topic) {
@@ -174,6 +169,14 @@ export default function CommandCenterPage() {
       params.set("action", result.quick_action_id);
     }
 
+    // Check if this intent should go to chat
+    if (chatIntents.includes(result.intent)) {
+      params.set("intent", result.intent);
+      router.push("/chat" + (params.toString() ? "?" + params.toString() : ""));
+      return;
+    }
+
+    const route = intentRoutes[result.intent] || "/marketing";
     const queryString = params.toString();
     router.push(route + (queryString ? "?" + queryString : ""));
   };
@@ -182,19 +185,23 @@ export default function CommandCenterPage() {
     intent: string,
     params: Record<string, unknown>
   ) => {
+    // Routes that have dedicated pages
     const intentRoutes: Record<string, string> = {
       social_media_post: "/marketing",
       marketing_copy: "/marketing",
-      campaign: "/campaigns",
+      campaign: "/marketing",  // Campaigns are part of marketing
       invoice: "/finance",
       cashflow_analysis: "/finance",
-      job_posting: "/hr",
-      sales_proposal: "/sales",
-      contract_review: "/legal",
-      ticket_response: "/support",
     };
 
-    const route = intentRoutes[intent] || "/marketing";
+    // Intents that should go to chat (no dedicated page yet)
+    const chatIntents = [
+      "job_posting", "interview_questions", "onboarding",  // HR
+      "sales_proposal", "lead_scoring", "followup_email",  // Sales
+      "contract_review", "privacy_policy", "terms_of_service", "gdpr_check",  // Legal
+      "ticket_response", "faq", "sentiment_analysis",  // Support
+    ];
+
     const searchParams = new URLSearchParams();
 
     Object.entries(params).forEach(([key, value]) => {
@@ -203,6 +210,14 @@ export default function CommandCenterPage() {
       }
     });
 
+    // Check if this intent should go to chat
+    if (chatIntents.includes(intent)) {
+      searchParams.set("intent", intent);
+      router.push("/chat" + (searchParams.toString() ? "?" + searchParams.toString() : ""));
+      return;
+    }
+
+    const route = intentRoutes[intent] || "/marketing";
     const queryString = searchParams.toString();
     router.push(route + (queryString ? "?" + queryString : ""));
   };
