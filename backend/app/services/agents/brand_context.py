@@ -146,6 +146,14 @@ def _build_instagram_context(
     if products_services:
         sections.append(f"=== PRODUKTY/USLUGI (do promowania) ===\n{products_services}")
 
+    # Visual descriptions for image generation (Instagram-specific)
+    visual_descriptions = _format_visual_descriptions(
+        knowledge.get("products", [])[:max_products],
+        knowledge.get("services", [])[:max_services],
+    )
+    if visual_descriptions:
+        sections.append(f"=== OPISY WIZUALNE (dla generatora grafik) ===\n{visual_descriptions}")
+
     return "\n\n".join(sections) if sections else ""
 
 
@@ -442,6 +450,34 @@ def _format_products_services_detailed(products: list, services: list) -> str:
             idx += 1
 
     return "\n".join(lines).strip()
+
+
+def _format_visual_descriptions(products: list, services: list) -> str:
+    """Format visual descriptions for AI image generation.
+
+    Returns visual descriptions in English that can be used
+    to generate relevant images for products/services.
+    """
+    lines = []
+
+    for p in products:
+        if isinstance(p, dict) and p.get("name"):
+            name = p.get("name", "")
+            visual = p.get("visual_description", "")
+            if visual:
+                lines.append(f"- {name}: {visual}")
+
+    for s in services:
+        if isinstance(s, dict) and s.get("name"):
+            name = s.get("name", "")
+            visual = s.get("visual_description", "")
+            if visual:
+                lines.append(f"- {name}: {visual}")
+
+    if lines:
+        lines.insert(0, "Uzyj tych opisow wizualnych przy tworzeniu promptu do grafiki:")
+
+    return "\n".join(lines)
 
 
 def get_fallback_context(settings: dict) -> tuple[str, str]:

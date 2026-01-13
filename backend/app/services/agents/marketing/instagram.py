@@ -180,12 +180,13 @@ Wymagania:
 WAZNE - OPIS GRAFIKI:
 Grafika bedzie GENEROWANA PRZEZ AI (model obrazkowy), wiec:
 - NIGDY nie sugeruj zrzutow ekranu, interfejsow aplikacji, logo firmy
-- NIGDY nie sugeruj konkretnych zdjec produktow ktorych AI nie zna
 - NIGDY nie sugeruj zdjec prawdziwych osob (celebrytow, pracownikow)
-- ZAMIAST TEGO opisz: abstrakcyjne koncepcje, lifestyle, emocje, metafory wizualne
+- JESLI w kontekscie marki sa OPISY WIZUALNE produktow/uslug - UZYJ ICH jako bazy do grafiki!
+- Jesli brak opisow wizualnych, opisz: koncepcje, lifestyle, emocje zwiazane z produktem
 - Przyklad ZLY: "zrzut ekranu aplikacji Dario z interfejsem"
-- Przyklad DOBRY: "usmiechniete dziecko podczas zabawy edukacyjnej, ciepłe swiatlo, radosna atmosfera"
-- Opis musi byc w jezyku ANGIELSKIM (dla modelu AI)
+- Przyklad DOBRY: "colorful educational toy for children, cartoon owl mascot, bright playful atmosphere"
+- Opis MUSI byc w jezyku ANGIELSKIM (dla modelu AI)
+- Grafika powinna REPREZENTOWAC promowany produkt/usluge
 
 Zwroc wynik w formacie:
 - TEKST POSTU: [tekst]
@@ -213,9 +214,10 @@ KRYTYCZNE - WERYFIKACJA OPISU GRAFIKI:
 Grafika bedzie generowana przez AI, wiec ODRZUC opisy zawierajace:
 - Zrzuty ekranu, interfejsy aplikacji, dashboardy
 - Logo, nazwy marek widoczne na grafice
-- Konkretne produkty ktorych AI nie zna
 - Prawdziwe osoby (celebryci, pracownicy)
-Jesli opis zawiera takie elementy, PRZEPISZ go na opis mozliwy do wygenerowania.
+Jesli opis zawiera takie elementy, PRZEPISZ go.
+WAZNE: Jesli w kontekscie marki sa OPISY WIZUALNE produktow - upewnij sie ze grafika je wykorzystuje!
+Grafika powinna REPREZENTOWAC promowany produkt/usluge, nie byc abstrakcyjna.
 Opis MUSI byc po angielsku.
 
 Jesli wszystko jest OK, zatwierdz content.

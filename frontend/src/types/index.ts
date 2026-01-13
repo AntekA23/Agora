@@ -67,6 +67,7 @@ export interface ProductInput {
   category: string;
   features: string[];
   unique_selling_points: string[];
+  visual_description: string;  // Opis wizualny dla AI (po angielsku)
 }
 
 export interface ServiceInput {
@@ -76,6 +77,7 @@ export interface ServiceInput {
   price_to: number | null;
   duration: string;
   benefits: string[];
+  visual_description: string;  // Opis wizualny dla AI (po angielsku)
 }
 
 export interface CompetitorInput {

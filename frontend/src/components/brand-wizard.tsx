@@ -613,6 +613,7 @@ function Step4ProductsServices({
       category: "",
       features: [],
       unique_selling_points: [],
+      visual_description: "",
     };
     onChange({ ...data, products: [...data.products, newProduct] });
   };
@@ -635,6 +636,7 @@ function Step4ProductsServices({
       price_to: null,
       duration: "",
       benefits: [],
+      visual_description: "",
     };
     onChange({ ...data, services: [...data.services, newService] });
   };
@@ -763,6 +765,18 @@ function ProductForm({
           placeholder="Kategoria"
         />
       </div>
+      <div className="space-y-1">
+        <Textarea
+          value={product.visual_description}
+          onChange={(e) => onChange({ ...product, visual_description: e.target.value })}
+          placeholder="Opis wizualny dla AI (po angielsku), np. 'colorful educational toy for children, cartoon owl mascot, bright colors'"
+          rows={2}
+          className="text-sm"
+        />
+        <p className="text-xs text-muted-foreground">
+          Opisz jak wyglada produkt - AI uzyje tego do generowania grafik
+        </p>
+      </div>
     </div>
   );
 }
@@ -823,6 +837,18 @@ function ServiceForm({
           onChange={(e) => onChange({ ...service, duration: e.target.value })}
           placeholder="Czas trwania"
         />
+      </div>
+      <div className="space-y-1">
+        <Textarea
+          value={service.visual_description}
+          onChange={(e) => onChange({ ...service, visual_description: e.target.value })}
+          placeholder="Opis wizualny dla AI (po angielsku), np. 'professional business consultation, modern office, two people discussing'"
+          rows={2}
+          className="text-sm"
+        />
+        <p className="text-xs text-muted-foreground">
+          Opisz jak wyglada usluga - AI uzyje tego do generowania grafik
+        </p>
       </div>
     </div>
   );

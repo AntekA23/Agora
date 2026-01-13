@@ -134,6 +134,7 @@ class Product(BaseModel):
     category: str = ""
     features: list[str] = Field(default_factory=list)
     unique_selling_points: list[str] = Field(default_factory=list)
+    visual_description: str = ""  # Opis wizualny dla AI (po angielsku), np. "colorful educational toy"
 
 
 class Service(BaseModel):
@@ -145,6 +146,7 @@ class Service(BaseModel):
     price_to: float | None = None
     duration: str = ""  # np. "1 godzina", "2-3 dni"
     benefits: list[str] = Field(default_factory=list)
+    visual_description: str = ""  # Opis wizualny dla AI (po angielsku), np. "professional consultation"
 
 
 class Competitor(BaseModel):
