@@ -6,6 +6,7 @@ from langchain_openai import ChatOpenAI
 from app.core.config import settings
 from app.services.agents.tools.web_search import TavilySearchTool, TavilyCompetitorTool
 from app.services.agents.memory import memory_service
+from app.services.agents.seasonal_context import build_seasonal_context
 
 
 async def get_copywriter_memory_context(company_id: str, brief: str) -> str:
@@ -78,6 +79,9 @@ async def generate_marketing_copy(
 
     length_instruction = f"Maksymalna dlugosc: {max_length} znakow." if max_length else ""
 
+    # Build seasonal context
+    seasonal_context = build_seasonal_context()
+
     # Build comprehensive brand info from context
     brand_info = ""
     if brand_context:
@@ -86,12 +90,17 @@ async def generate_marketing_copy(
         SZCZEGOLOWY KONTEKST MARKI:
         {brand_context}
 
-        Wykorzystaj informacje o produktach, bolaczkach klientow i przewagach konkurencyjnych."""
+        {seasonal_context}
+
+        Wykorzystaj informacje o produktach, bolaczkach klientow i przewagach konkurencyjnych.
+        Dostosuj tresc do aktualnej pory roku i nadchodzacych okazji!"""
     else:
         # Fallback for backward compatibility
         brand_info = f"""
         Brand voice: {brand_voice}.
-        Grupa docelowa: {target_audience or 'szeroka publicznosc'}."""
+        Grupa docelowa: {target_audience or 'szeroka publicznosc'}.
+
+        {seasonal_context}"""
 
     # SEO/Market Researcher
     seo_researcher = Agent(
@@ -175,6 +184,7 @@ Wymagania:
 6. Uzywaj preferowanych slow i unikaj slow zabronionych (jesli okreslone w kontekscie)
 7. Zastosuj techniki ktore dzialaja u konkurencji
 8. Wykorzystaj USP produktow/uslug (jesli dostepne w kontekscie)
+9. DOSTOSUJ tresc do PORY ROKU i nadchodzacych swiat/okazji z kontekstu czasowego!
 {length_instruction}
 
 Stworz 2-3 warianty tekstu do wyboru.
@@ -196,9 +206,10 @@ Ocen kazdy wariant pod katem:
 2. Skutecznosci technik perswazji
 3. Zgodnosci ze stylem komunikacji marki
 4. Potencjalu konwersji
-5. {'Adresowania bolaczeк i celow klientow z kontekstu marki' if brand_context else 'Trafnosci do grupy docelowej'}
+5. {'Adresowania bolaczek i celow klientow z kontekstu marki' if brand_context else 'Trafnosci do grupy docelowej'}
 6. {'Nie uzyto slow zabronionych (jesli okreslone w kontekscie)' if brand_context else ''}
 7. {'Wykorzystania USP produktow/uslug' if brand_context else ''}
+8. SEZONOWOSC - czy tresc jest dostosowana do aktualnej pory roku i nadchodzacych okazji?
 
 Wybierz najlepszy wariant i uzasadnij krotko swoj wybor.
 Wprowadz ewentualne poprawki do wybranego tekstu.

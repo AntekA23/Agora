@@ -6,6 +6,7 @@ from langchain_openai import ChatOpenAI
 from app.core.config import settings
 from app.services.agents.tools.web_search import TavilySearchTool, TavilyTrendsTool
 from app.services.agents.memory import memory_service, MemoryType
+from app.services.agents.seasonal_context import build_seasonal_context
 
 
 async def get_memory_context(company_id: str, brief: str) -> str:
@@ -75,6 +76,9 @@ def create_instagram_crew(
         verbose=False,
     )
 
+    # Build seasonal context
+    seasonal_context = build_seasonal_context()
+
     # Build comprehensive brand info from context
     brand_info = ""
     if brand_context:
@@ -83,12 +87,17 @@ def create_instagram_crew(
         SZCZEGOLOWY KONTEKST MARKI:
         {brand_context}
 
-        Wykorzystaj te informacje przy tworzeniu i ocenie contentu."""
+        {seasonal_context}
+
+        Wykorzystaj te informacje przy tworzeniu i ocenie contentu.
+        Dostosuj tresc do aktualnej pory roku i nadchodzacych okazji!"""
     else:
         # Fallback for backward compatibility
         brand_info = f"""
         Brand voice firmy: {brand_voice}.
-        Grupa docelowa: {target_audience or 'szeroka publicznosc'}."""
+        Grupa docelowa: {target_audience or 'szeroka publicznosc'}.
+
+        {seasonal_context}"""
 
     # Marketing Manager - oversees and approves content
     marketing_manager = Agent(
@@ -176,6 +185,7 @@ Wymagania:
 6. Jesli masz informacje o produktach/uslugach firmy, mozesz je naturalnie wplatac w tresc
 7. Uzywaj preferowanych slow i unikaj slow zabronionych (jesli okreslone w kontekscie)
 8. Zaproponuj najlepszy czas publikacji
+9. DOSTOSUJ tresc do PORY ROKU i nadchodzacych swiat/okazji z kontekstu czasowego!
 
 WAZNE - OPIS GRAFIKI:
 Grafika bedzie GENEROWANA PRZEZ AI (model obrazkowy), wiec:
@@ -209,6 +219,7 @@ Zwroc wynik w formacie:
 5. Potencjalu wiralowego
 6. {'Uzyte zostaly hashtagi firmowe marki' if brand_context and 'Hashtagi firmowe:' in brand_context else 'Hashtagi sa odpowiednie'}
 7. Nie uzyto slow zabronionych (jesli okreslone w kontekscie)
+8. SEZONOWOSC - czy tresc jest dostosowana do aktualnej pory roku i nadchodzacych okazji?
 
 KRYTYCZNE - WERYFIKACJA OPISU GRAFIKI:
 Grafika bedzie generowana przez AI, wiec ODRZUC opisy zawierajace:
